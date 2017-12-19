@@ -619,7 +619,7 @@ func FindLprojs(root string) (output []string, outerr error) {
 			return err
 		}
 		if info.IsDir() {
-			if strings.HasSuffix(fullpath, ".lproj") {
+			if strings.HasSuffix(fullpath, ".lproj") && !strings.HasSuffix(fullpath, "Base.lproj") {
 				output = append(output, fullpath)
 			}
 		}
