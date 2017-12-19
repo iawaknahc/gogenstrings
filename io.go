@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"unicode/utf8"
 )
 
@@ -18,20 +17,9 @@ func ReadFile(filename string) (string, error) {
 	return string(bytes), nil
 }
 
-func WriteFile(filename, content string) (err error) {
-	tempfile, err := ioutil.TempFile("", "genstrings")
-	if err != nil {
-		return err
-	}
-	tempfilePath := tempfile.Name()
-	_, err = tempfile.WriteString(content)
-	if err != nil {
-		return err
-	}
-	err = tempfile.Close()
-	if err != nil {
-		return err
-	}
-	err = os.Rename(tempfilePath, filename)
-	return err
+func WriteFile(filename, content string) error {
+	// Write the file directly instead of
+	// Writing to the temp file followed by a rename
+	// in order to avoid cross-device link
+	return ioutil.WriteFile(filename, []byte(content), 0644)
 }
