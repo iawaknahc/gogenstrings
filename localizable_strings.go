@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -249,16 +250,18 @@ type GenstringsContext struct {
 	RoutineCalls              map[string]RoutineCall
 	DevelopmentLanguage       string
 	RoutineName               string
+	ExcludeRegexp             *regexp.Regexp
 	mergedByLproj             map[string]LocalizableStrings
 }
 
-func NewGenstringsContext(rootPath, developmentLanguage, routineName string) GenstringsContext {
+func NewGenstringsContext(rootPath, developmentLanguage, routineName string, exclude *regexp.Regexp) GenstringsContext {
 	ctx := GenstringsContext{
 		RootPath:                  rootPath,
 		LocalizableStringsByLproj: make(map[string]LocalizableStrings),
 		RoutineCalls:              make(map[string]RoutineCall),
 		DevelopmentLanguage:       developmentLanguage,
 		RoutineName:               routineName,
+		ExcludeRegexp:             exclude,
 	}
 	return ctx
 }
@@ -293,7 +296,7 @@ func (p *GenstringsContext) ReadLprojs() error {
 }
 
 func (p *GenstringsContext) ReadRoutineCalls() error {
-	sourceFilePaths, err := FindSourceCodeFiles(p.RootPath)
+	sourceFilePaths, err := FindSourceCodeFiles(p.RootPath, p.ExcludeRegexp)
 	if err != nil {
 		return err
 	}
@@ -637,14 +640,16 @@ func isSourceCodeFile(fullpath string) bool {
 	return ext == ".swift" || ext == ".m" || ext == ".h"
 }
 
-func FindSourceCodeFiles(root string) (output []string, outerr error) {
+func FindSourceCodeFiles(root string, exclude *regexp.Regexp) (output []string, outerr error) {
 	walkFn := func(fullpath string, info os.FileInfo, err error) error {
 		if err != nil {
 			outerr = err
 			return err
 		}
 		if info.Mode().IsRegular() && isSourceCodeFile(fullpath) {
-			output = append(output, fullpath)
+			if exclude == nil || !exclude.MatchString(fullpath) {
+				output = append(output, fullpath)
+			}
 		}
 		return nil
 	}
