@@ -143,7 +143,7 @@ func lexRoutineCall(l *Lexer) StateFn {
 }
 
 func getComment(c string) string {
-	return c[2 : len(c)-2]
+	return strings.TrimSpace(c[2 : len(c)-2])
 }
 
 func getStringValue(s string) string {
@@ -176,7 +176,7 @@ func (ls LocalizableString) MergeDev(dev LocalizableString) LocalizableString {
 }
 
 func (ls LocalizableString) Print() string {
-	return "/*" + ls.Comment + "*/\n\"" + ls.Key + `" = "` + ls.Value + "\";\n"
+	return "/* " + ls.Comment + " */\n\"" + ls.Key + `" = "` + ls.Value + "\";\n\n"
 }
 
 type RoutineCall struct {
