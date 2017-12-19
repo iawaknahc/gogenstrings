@@ -164,6 +164,9 @@ type LocalizableString struct {
 
 func (ls LocalizableString) MergeCall(rc RoutineCall) LocalizableString {
 	ls.Comment = rc.Comment
+	if ls.Comment == "" {
+		ls.Comment = "No comment provided by engineer."
+	}
 	return ls
 }
 
