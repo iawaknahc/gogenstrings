@@ -14,5 +14,6 @@ func main() {
 	ctx := NewGenstringsContext(*rootPtr, *devLangPtr, *routinePtr)
 	if err := ctx.Genstrings(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
 }
