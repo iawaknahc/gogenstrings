@@ -302,7 +302,7 @@ func (p *GenstringsContext) ReadRoutineCalls() error {
 		}
 		calls, err := ParseRoutineCall(content, p.RoutineName)
 		if err != nil {
-			return err
+			return fmt.Errorf("%v in %v", err, fullpath)
 		}
 		for _, call := range calls {
 			existingCall, ok := p.RoutineCalls[call.Key]
