@@ -311,6 +311,14 @@ func (p *GenstringsContext) ReadRoutineCalls() error {
 			return fmt.Errorf("%v in %v", err, fullpath)
 		}
 		for _, call := range calls {
+			if call.Key == "" {
+				return fmt.Errorf(
+					"routine call at %v:%v in %v has empty key",
+					call.StartLine,
+					call.StartCol,
+					fullpath,
+				)
+			}
 			existingCall, ok := p.RoutineCalls[call.Key]
 			if ok {
 				if call.Comment != existingCall.Comment {
