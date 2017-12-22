@@ -151,12 +151,6 @@ func getStringValue(s string) string {
 	return s[1 : len(s)-1]
 }
 
-func joinStringLiteral(s1, s2 string) string {
-	v1 := getStringValue(s1)
-	v2 := getStringValue(s2)
-	return `"` + v1 + v2 + `"`
-}
-
 type entry struct {
 	comment string
 	key     string
