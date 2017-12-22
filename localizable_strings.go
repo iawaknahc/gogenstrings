@@ -413,19 +413,28 @@ type LocalizableStringsParser struct {
 func (p *LocalizableStringsParser) parse() (output []LocalizableString, err error) {
 	defer p.recover(&err)
 	for {
-		commentOrEOF := p.nextNonSpace()
-		if commentOrEOF.Type == ItemEOF {
+		token := p.nextNonSpace()
+		if token.Type == ItemEOF {
 			break
 		}
-		if commentOrEOF.Type != ItemComment {
-			p.unexpected(commentOrEOF)
+		var key Item
+		var comment string
+
+		if token.Type == ItemComment {
+			comment = getComment(token.Value)
+			key = p.expect(ItemString)
+		} else if token.Type == ItemString {
+			comment = ""
+			key = token
+		} else {
+			p.unexpected(token)
 		}
-		key := p.expect(ItemString)
+
 		p.expect(ItemEqualSign)
 		value := p.expect(ItemString)
 		p.expect(ItemSemicolon)
 		ls := LocalizableString{
-			Comment: getComment(commentOrEOF.Value),
+			Comment: comment,
 			Key:     getStringValue(key.Value),
 			Value:   getStringValue(value.Value),
 		}
