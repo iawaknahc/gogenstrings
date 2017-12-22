@@ -6,28 +6,28 @@ import (
 	"unicode/utf8"
 )
 
-const EOF = -1
+const eof = -1
 
-type ItemType int
+type itemType int
 
 const (
-	ItemError ItemType = iota
-	ItemEOF
-	ItemComment
-	ItemSpaces
-	ItemString
-	ItemEqualSign
-	ItemSemicolon
-	ItemAtSign
-	ItemColon
-	ItemComma
-	ItemIdentifier
-	ItemParenLeft
-	ItemParenRight
+	itemError itemType = iota
+	itemEOF
+	itemComment
+	itemSpaces
+	itemString
+	itemEqualSign
+	itemSemicolon
+	itemAtSign
+	itemColon
+	itemComma
+	itemIdentifier
+	itemParenLeft
+	itemParenRight
 )
 
-type Item struct {
-	Type      ItemType
+type lexItem struct {
+	Type      itemType
 	Value     string
 	Err       error
 	Start     int
@@ -38,60 +38,60 @@ type Item struct {
 	EndCol    int
 }
 
-func (i Item) String() string {
+func (i lexItem) String() string {
 	switch i.Type {
-	case ItemError:
+	case itemError:
 		return fmt.Sprintf("%v at %v:%v", i.Err, i.EndLine, i.EndCol)
-	case ItemEOF:
+	case itemEOF:
 		return fmt.Sprintf("EOF")
-	case ItemEqualSign:
+	case itemEqualSign:
 		fallthrough
-	case ItemSemicolon:
+	case itemSemicolon:
 		return fmt.Sprintf("%v at %v:%v", i.Value, i.EndLine, i.EndCol)
 	default:
 		return fmt.Sprintf("%q from %v:%v to %v:%v", i.Value, i.StartLine, i.StartCol, i.EndLine, i.EndCol)
 	}
 }
 
-type StateFn func(*Lexer) StateFn
+type stateFn func(*lexer) stateFn
 
-type Lexer struct {
-	state   StateFn
+type lexer struct {
+	state   stateFn
 	input   string
 	start   int
 	pos     int
 	line    int
 	linePos []int
 	width   int
-	items   chan Item
+	items   chan lexItem
 }
 
-func NewLexer(input string, state StateFn) Lexer {
-	l := Lexer{
+func newLexer(input string, state stateFn) lexer {
+	l := lexer{
 		state:   state,
 		input:   input,
 		linePos: []int{-1},
-		items:   make(chan Item, 2),
+		items:   make(chan lexItem, 2),
 	}
 	go l.run()
 	return l
 }
 
-func (l *Lexer) NextItem() Item {
+func (l *lexer) nextItem() lexItem {
 	item := <-l.items
 	return item
 }
 
-func (l *Lexer) run() {
+func (l *lexer) run() {
 	for s := l.state; s != nil; s = l.state {
 		l.state = l.state(l)
 	}
 	close(l.items)
 }
 
-func (l *Lexer) Next() rune {
+func (l *lexer) next() rune {
 	if l.pos >= len(l.input) {
-		return EOF
+		return eof
 	}
 	r, w := utf8.DecodeRuneInString(l.input[l.pos:])
 	if r == '\n' {
@@ -103,7 +103,7 @@ func (l *Lexer) Next() rune {
 	return r
 }
 
-func (l *Lexer) Backup() {
+func (l *lexer) backup() {
 	l.pos -= l.width
 	r, _ := utf8.DecodeRuneInString(l.input[l.pos:])
 	if r == '\n' {
@@ -112,18 +112,18 @@ func (l *Lexer) Backup() {
 	}
 }
 
-func (l *Lexer) Peek() rune {
-	r := l.Next()
-	l.Backup()
+func (l *lexer) peek() rune {
+	r := l.next()
+	l.backup()
 	return r
 }
 
-func (l *Lexer) Ignore() {
+func (l *lexer) ignore() {
 	l.start = l.pos
 }
 
-func (l *Lexer) Emit(typ ItemType) {
-	item := Item{
+func (l *lexer) emit(typ itemType) {
+	item := lexItem{
 		Type:      typ,
 		Value:     l.input[l.start:l.pos],
 		Start:     l.start,
@@ -137,15 +137,15 @@ func (l *Lexer) Emit(typ ItemType) {
 	l.items <- item
 }
 
-func (l *Lexer) UnexpectedToken(r rune) StateFn {
+func (l *lexer) unexpectedToken(r rune) stateFn {
 	var err error
-	if r == EOF {
+	if r == eof {
 		err = errors.New("unexpected EOF")
 	} else {
 		err = errors.New(fmt.Sprintf("unexpected token `%c`", r))
 	}
-	item := Item{
-		Type:      ItemError,
+	item := lexItem{
+		Type:      itemError,
 		Err:       err,
 		Start:     l.start,
 		End:       l.pos,
@@ -159,12 +159,12 @@ func (l *Lexer) UnexpectedToken(r rune) StateFn {
 	return nil
 }
 
-func (l *Lexer) EOF() StateFn {
-	l.Emit(ItemEOF)
+func (l *lexer) eof() stateFn {
+	l.emit(itemEOF)
 	return nil
 }
 
-func (l *Lexer) getLine(pos int) int {
+func (l *lexer) getLine(pos int) int {
 	for i := len(l.linePos) - 1; i >= 0; i -= 1 {
 		linePos := l.linePos[i]
 		if pos >= linePos {
@@ -174,7 +174,7 @@ func (l *Lexer) getLine(pos int) int {
 	return 1
 }
 
-func (l *Lexer) getCol(pos int) int {
+func (l *lexer) getCol(pos int) int {
 	for i := len(l.linePos) - 1; i >= 0; i -= 1 {
 		linePos := l.linePos[i]
 		if pos >= linePos {

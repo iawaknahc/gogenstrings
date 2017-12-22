@@ -29,8 +29,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-	ctx := NewGenstringsContext(*rootPtr, *devLangPtr, *routinePtr, excludeRe)
-	if err := ctx.Genstrings(); err != nil {
+	ctx := newGenstringsContext(*rootPtr, *devLangPtr, *routinePtr, excludeRe)
+	if err := ctx.genstrings(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}

@@ -6,7 +6,7 @@ import (
 	"unicode/utf8"
 )
 
-func ReadFile(filename string) (string, error) {
+func readFile(filename string) (string, error) {
 	bytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return "", err
@@ -17,7 +17,7 @@ func ReadFile(filename string) (string, error) {
 	return string(bytes), nil
 }
 
-func WriteFile(filename, content string) error {
+func writeFile(filename, content string) error {
 	// Write the file directly instead of
 	// Writing to the temp file followed by a rename
 	// in order to avoid cross-device link
