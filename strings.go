@@ -173,8 +173,14 @@ func (ls entry) mergeDev(dev entry) entry {
 	return ls
 }
 
-func (ls entry) print() string {
-	return "/* " + ls.comment + " */\n\"" + ls.key + `" = "` + ls.value + "\";\n\n"
+func (ls entry) print(suppressEmptyComment bool) string {
+	output := ""
+	printComment := !suppressEmptyComment || ls.comment != ""
+	if printComment {
+		output += "/* " + ls.comment + " */\n"
+	}
+	output += `"` + ls.key + `" = "` + ls.value + `";` + "\n\n"
+	return output
 }
 
 type routineCall struct {
@@ -237,25 +243,42 @@ func (lss entryMap) sort() []entry {
 }
 
 type genstringsContext struct {
-	rootPath        string
+	// Configuration
+	rootPath      string
+	routineName   string
+	devlang       string
+	excludeRegexp *regexp.Regexp
+
+	// Result of find
 	lprojs          []string
 	sourceFilePaths []string
-	entryMapByLproj map[string]entryMap
-	routineCalls    map[string]routineCall
-	devlang         string
-	routineName     string
-	excludeRegexp   *regexp.Regexp
-	mergedByLproj   map[string]entryMap
+
+	// Localizable.strings
+	// The key is lproj
+	inStrings  map[string]entryMap
+	outStrings map[string]entryMap
+
+	// InfoPlist.strings
+	// The key is lproj
+	inInfoPlists  map[string]entryMap
+	outInfoPlists map[string]entryMap
+
+	// Invocation of routine found in source code
+	// The key is translation key
+	routineCalls map[string]routineCall
 }
 
 func newGenstringsContext(rootPath, developmentLanguage, routineName string, exclude *regexp.Regexp) genstringsContext {
 	ctx := genstringsContext{
-		rootPath:        rootPath,
-		entryMapByLproj: make(map[string]entryMap),
-		routineCalls:    make(map[string]routineCall),
-		devlang:         developmentLanguage,
-		routineName:     routineName,
-		excludeRegexp:   exclude,
+		rootPath:      rootPath,
+		routineName:   routineName,
+		devlang:       developmentLanguage,
+		excludeRegexp: exclude,
+		inStrings:     make(map[string]entryMap),
+		outStrings:    make(map[string]entryMap),
+		inInfoPlists:  make(map[string]entryMap),
+		outInfoPlists: make(map[string]entryMap),
+		routineCalls:  make(map[string]routineCall),
 	}
 	return ctx
 }
@@ -266,6 +289,7 @@ func (p *genstringsContext) readLprojs() error {
 		return err
 	}
 	p.lprojs = lprojs
+
 	for _, lproj := range p.lprojs {
 		fullpath := lproj + "/Localizable.strings"
 		_, err := os.Stat(fullpath)
@@ -273,7 +297,7 @@ func (p *genstringsContext) readLprojs() error {
 			if !os.IsNotExist(err) {
 				return err
 			}
-			p.entryMapByLproj[lproj] = entryMap{}
+			p.inStrings[lproj] = entryMap{}
 		} else {
 			content, err := readFile(fullpath)
 			if err != nil {
@@ -283,9 +307,31 @@ func (p *genstringsContext) readLprojs() error {
 			if err != nil {
 				return fmt.Errorf("%v in %v", err, fullpath)
 			}
-			p.entryMapByLproj[lproj] = lss
+			p.inStrings[lproj] = lss
 		}
 	}
+
+	for _, lproj := range p.lprojs {
+		fullpath := lproj + "/InfoPlist.strings"
+		_, err := os.Stat(fullpath)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				return err
+			}
+			p.inInfoPlists[lproj] = entryMap{}
+		} else {
+			content, err := readFile(fullpath)
+			if err != nil {
+				return err
+			}
+			lss, err := parseStrings(content)
+			if err != nil {
+				return fmt.Errorf("%v in %v", err, fullpath)
+			}
+			p.inInfoPlists[lproj] = lss
+		}
+	}
+
 	return nil
 }
 
@@ -348,39 +394,61 @@ func (p *genstringsContext) devLproj() string {
 }
 
 func (p *genstringsContext) merge() error {
-	p.mergedByLproj = make(map[string]entryMap)
-
 	devLproj := p.devLproj()
 	if devLproj == "" {
 		return fmt.Errorf("cannot lproj of %v", p.devlang)
 	}
 	// Merge development language first
-	existingLss, ok := p.entryMapByLproj[devLproj]
+	existingLss, ok := p.inStrings[devLproj]
 	if !ok {
 		return fmt.Errorf("cannot find %v", devLproj)
 	}
-	p.mergedByLproj[devLproj] = existingLss.mergeCalls(p.routineCalls)
+	p.outStrings[devLproj] = existingLss.mergeCalls(p.routineCalls)
 
 	// Merge other languages
-	for lproj, lss := range p.entryMapByLproj {
+	for lproj, lss := range p.inStrings {
 		if lproj == devLproj {
 			continue
 		}
-		p.mergedByLproj[lproj] = lss.merge(p.mergedByLproj[devLproj])
+		p.outStrings[lproj] = lss.merge(p.outStrings[devLproj])
+	}
+
+	// Merge InfoPlist.strings
+	devInfoPlist := p.inInfoPlists[devLproj]
+	for lproj, lss := range p.inInfoPlists {
+		if lproj == devLproj {
+			p.outInfoPlists[lproj] = devInfoPlist
+		} else {
+			p.outInfoPlists[lproj] = lss.merge(devInfoPlist)
+		}
 	}
 
 	return nil
 }
 
 func (p *genstringsContext) write() error {
-	for lproj, lss := range p.mergedByLproj {
+	// Write Localizable.strings
+	for lproj, lss := range p.outStrings {
 		sorted := lss.sort()
-		content := printStrings(sorted)
+		content := printStrings(sorted, false)
 		targetPath := lproj + "/Localizable.strings"
 		if err := writeFile(targetPath, content); err != nil {
 			return err
 		}
 	}
+	// Write InfoPlist.strings
+	for lproj, lss := range p.outInfoPlists {
+		sorted := lss.sort()
+		if len(sorted) <= 0 {
+			continue
+		}
+		content := printStrings(sorted, true)
+		targetPath := lproj + "/InfoPlist.strings"
+		if err := writeFile(targetPath, content); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -629,10 +697,10 @@ func (p *routineCallParser) parseFuncLabel() {
 	p.expect(itemColon)
 }
 
-func printStrings(lss []entry) string {
+func printStrings(lss []entry, suppressEmptyComment bool) string {
 	buf := bytes.Buffer{}
 	for _, ls := range lss {
-		buf.WriteString(ls.print())
+		buf.WriteString(ls.print(suppressEmptyComment))
 	}
 	return buf.String()
 }
