@@ -70,10 +70,10 @@ func lexString(state stateFn) stateFn {
 	}
 }
 
-func lexLocalizableString(l *lexer) stateFn {
+func lexEntry(l *lexer) stateFn {
 	for {
 		if strings.HasPrefix(l.input[l.pos:], "/*") {
-			return lexComment(lexLocalizableString)
+			return lexComment(lexEntry)
 		}
 		r := l.next()
 		switch r {
@@ -81,7 +81,7 @@ func lexLocalizableString(l *lexer) stateFn {
 			return l.eof()
 		case '"':
 			l.backup()
-			return lexString(lexLocalizableString)
+			return lexString(lexEntry)
 		case ';':
 			l.emit(itemSemicolon)
 		case '=':
@@ -89,7 +89,7 @@ func lexLocalizableString(l *lexer) stateFn {
 		default:
 			if isSpace(r) {
 				l.backup()
-				return lexSpaces(lexLocalizableString)
+				return lexSpaces(lexEntry)
 			}
 			return l.unexpectedToken(r)
 		}
@@ -279,7 +279,7 @@ func (p *genstringsContext) readLprojs() error {
 			if err != nil {
 				return err
 			}
-			lss, err := ParseStrings(content)
+			lss, err := parseStrings(content)
 			if err != nil {
 				return fmt.Errorf("%v in %v", err, fullpath)
 			}
@@ -472,8 +472,8 @@ func (p *stringsParser) unexpected(item lexItem) {
 	}
 }
 
-func ParseStrings(src string) (entryMap, error) {
-	l := newLexer(src, lexLocalizableString)
+func parseStrings(src string) (entryMap, error) {
+	l := newLexer(src, lexEntry)
 	p := &stringsParser{
 		lexer: &l,
 	}
