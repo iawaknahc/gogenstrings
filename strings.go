@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 )
 
@@ -141,56 +140,6 @@ func lexRoutineCall(l *lexer) stateFn {
 			}
 		}
 	}
-}
-
-type entryMap map[string]entry
-
-func (lss entryMap) mergeCalls(rcs map[string]routineCall) entryMap {
-	output := entryMap{}
-	// Copy existing LocalizableString if they are still in use
-	for key, ls := range lss {
-		if rc, ok := rcs[key]; ok {
-			output[key] = ls.mergeCall(rc)
-		}
-	}
-	// Copy new routine call
-	for key, rc := range rcs {
-		if _, ok := output[key]; !ok {
-			output[key] = entry{
-				comment: rc.comment,
-				key:     rc.key,
-				value:   rc.key,
-			}
-		}
-	}
-	return output
-}
-
-func (lss entryMap) merge(dev entryMap) entryMap {
-	output := entryMap{}
-	for key, ls := range lss {
-		if devLs, ok := dev[key]; ok {
-			output[key] = ls.mergeDev(devLs)
-		}
-	}
-	for key, devLs := range dev {
-		if _, ok := output[key]; !ok {
-			output[key] = devLs
-		}
-	}
-	return output
-}
-
-func (lss entryMap) sort() []entry {
-	slice := []entry{}
-	for _, ls := range lss {
-		slice = append(slice, ls)
-	}
-	less := func(i, j int) bool {
-		return slice[i].key < slice[j].key
-	}
-	sort.SliceStable(slice, less)
-	return slice
 }
 
 type genstringsContext struct {
@@ -361,7 +310,7 @@ func (p *genstringsContext) merge() error {
 		if lproj == devLproj {
 			continue
 		}
-		p.outStrings[lproj] = lss.merge(p.outStrings[devLproj])
+		p.outStrings[lproj] = lss.mergeDev(p.outStrings[devLproj])
 	}
 
 	// Merge InfoPlist.strings
@@ -370,7 +319,7 @@ func (p *genstringsContext) merge() error {
 		if lproj == devLproj {
 			p.outInfoPlists[lproj] = devInfoPlist
 		} else {
-			p.outInfoPlists[lproj] = lss.merge(devInfoPlist)
+			p.outInfoPlists[lproj] = lss.mergeDev(devInfoPlist)
 		}
 	}
 
