@@ -49,15 +49,19 @@ func (p infoPlist) toEntryMap() entryMap {
 }
 
 type parser struct {
-	decoder *xml.Decoder
+	decoder   *xml.Decoder
+	offset    int
+	filepath  string
+	lineColer LineColer
 }
 
-func (p parser) nextToken() (xml.Token, error) {
+func (p *parser) nextToken() (xml.Token, error) {
+	p.offset = int(p.decoder.InputOffset())
 	token, err := p.decoder.Token()
 	return token, err
 }
 
-func (p parser) nextNonSpace() *xml.Token {
+func (p *parser) nextNonSpace() *xml.Token {
 	for {
 		token, err := p.nextToken()
 		if err != nil {
@@ -72,7 +76,7 @@ func (p parser) nextNonSpace() *xml.Token {
 	}
 }
 
-func (p parser) recover(errp *error) {
+func (p *parser) recover(errp *error) {
 	if r := recover(); r != nil {
 		err, ok := r.(error)
 		if !ok {
@@ -82,16 +86,30 @@ func (p parser) recover(errp *error) {
 	}
 }
 
-func (p parser) unexpected(what, expected interface{}) {
-	panic(fmt.Errorf("unexpected %v; expected %v", what, expected))
+func (p *parser) unexpected(token, expected xml.Token) {
+	startLine, startCol := p.lineColer.LineCol(p.offset)
+	message := fmt.Sprintf(
+		"unexpected %v; expected %v",
+		tokenToString(token),
+		tokenToString(expected),
+	)
+	err := makeErrFileLineCol(
+		p.filepath,
+		startLine,
+		startCol,
+		message,
+	)
+	panic(err)
 }
 
-func (p parser) unexpectedEOF(expected interface{}) {
-	p.unexpected("EOF", expected)
+func (p *parser) unexpectedEOF(expected xml.Token) {
+	p.unexpected(nil, expected)
 }
 
-func (p parser) expectXMLHeader() {
-	expected := "<?xml?>"
+func (p *parser) expectXMLHeader() {
+	expected := xml.ProcInst{
+		Target: "xml",
+	}
 	tokenp := p.nextNonSpace()
 	if tokenp == nil {
 		p.unexpectedEOF(expected)
@@ -105,8 +123,8 @@ func (p parser) expectXMLHeader() {
 	}
 }
 
-func (p parser) expectDocType() {
-	expected := "<!DOCTYPE>"
+func (p *parser) expectDocType() {
+	expected := xml.Directive([]byte("DOCTYPE"))
 	tokenp := p.nextNonSpace()
 	if tokenp == nil {
 		p.unexpectedEOF(expected)
@@ -119,15 +137,15 @@ func (p parser) expectDocType() {
 	}
 }
 
-func (p parser) assertStartElement(startElement xml.StartElement, localName string) {
-	expected := "<" + localName + ">"
+func (p *parser) assertStartElement(startElement xml.StartElement, localName string) {
+	expected := makeStartElement(localName)
 	if startElement.Name.Local != localName {
 		p.unexpected(startElement, expected)
 	}
 }
 
-func (p parser) expectStartElement(localName string) {
-	expected := "<" + localName + ">"
+func (p *parser) expectStartElement(localName string) {
+	expected := makeStartElement(localName)
 	tokenp := p.nextNonSpace()
 	if tokenp == nil {
 		p.unexpectedEOF(expected)
@@ -140,15 +158,15 @@ func (p parser) expectStartElement(localName string) {
 	p.assertStartElement(startElement, localName)
 }
 
-func (p parser) assertEndElement(endElement xml.EndElement, localName string) {
-	expected := "</" + localName + ">"
+func (p *parser) assertEndElement(endElement xml.EndElement, localName string) {
+	expected := makeEndElement(localName)
 	if endElement.Name.Local != localName {
 		p.unexpected(endElement, expected)
 	}
 }
 
-func (p parser) expectEndElement(localName string) {
-	expected := "</" + localName + ">"
+func (p *parser) expectEndElement(localName string) {
+	expected := makeEndElement(localName)
 	tokenp := p.nextNonSpace()
 	if tokenp == nil {
 		p.unexpectedEOF(expected)
@@ -161,20 +179,20 @@ func (p parser) expectEndElement(localName string) {
 	p.assertEndElement(endElement, localName)
 }
 
-func (p parser) expectCharData() string {
+func (p *parser) expectCharData() string {
 	token, err := p.nextToken()
 	if err != nil {
 		panic(err)
 	}
 	charData, ok := token.(xml.CharData)
 	if !ok {
-		p.unexpected(token, "CharData")
+		p.unexpected(token, xml.CharData{})
 	}
 	return string(charData.Copy())
 }
 
-func (p parser) parseDictValue() *string {
-	expected := "<string>"
+func (p *parser) parseDictValue() *string {
+	expected := makeStartElement("string")
 
 	tokenp := p.nextNonSpace()
 	if tokenp == nil {
@@ -204,7 +222,7 @@ func (p parser) parseDictValue() *string {
 		return &value
 	case xml.EndElement:
 		if v.Name.Local != "string" {
-			p.unexpected(token, "</string>")
+			p.unexpected(token, makeEndElement("string"))
 		}
 		value := ""
 		return &value
@@ -212,7 +230,7 @@ func (p parser) parseDictValue() *string {
 	return nil
 }
 
-func (p parser) parseDict() infoPlist {
+func (p *parser) parseDict() infoPlist {
 	p.expectStartElement("dict")
 	out := infoPlist{}
 Loop:
@@ -242,21 +260,21 @@ Loop:
 	return out
 }
 
-func (p parser) parsePlist() infoPlist {
+func (p *parser) parsePlist() infoPlist {
 	p.expectStartElement("plist")
 	out := p.parseDict()
 	p.expectEndElement("plist")
 	return out
 }
 
-func (p parser) expectEOF() {
+func (p *parser) expectEOF() {
 	tokenp := p.nextNonSpace()
 	if tokenp != nil {
-		p.unexpected(*tokenp, "EOF")
+		p.unexpected(*tokenp, nil)
 	}
 }
 
-func (p parser) parse() infoPlist {
+func (p *parser) parse() infoPlist {
 	p.expectXMLHeader()
 	p.expectDocType()
 	out := p.parsePlist()
@@ -264,11 +282,62 @@ func (p parser) parse() infoPlist {
 	return out
 }
 
-func parseInfoPlist(src string) (out infoPlist, err error) {
+func parseInfoPlist(src, filepath string) (out infoPlist, err error) {
 	reader := strings.NewReader(src)
 	decoder := xml.NewDecoder(reader)
-	p := parser{decoder}
+	p := parser{
+		decoder:   decoder,
+		filepath:  filepath,
+		lineColer: NewLineColer(src),
+	}
 	defer p.recover(&err)
 	out = p.parse()
 	return out, err
+}
+
+func truncateBytes(b []byte) string {
+	s := string(b)
+	if len(s) >= 20 {
+		return s[0:20] + "..."
+	}
+	return s
+}
+
+func tokenToString(token xml.Token) string {
+	if token == nil {
+		return "EOF"
+	}
+	switch v := token.(type) {
+	case xml.StartElement:
+		return "<" + v.Name.Local + ">"
+	case xml.EndElement:
+		return "</" + v.Name.Local + ">"
+	case xml.CharData:
+		return "CharData"
+	case xml.Comment:
+		return "Comment"
+	case xml.ProcInst:
+		return "<?" + v.Target + "?>"
+	case xml.Directive:
+		return "<!" + truncateBytes(v) + ">"
+	case string:
+		return v
+	}
+	return ""
+}
+
+func makeStartElement(localName string) xml.StartElement {
+	return xml.StartElement{
+		Name: xml.Name{
+			Local: localName,
+		},
+	}
+}
+
+func makeEndElement(localName string) xml.EndElement {
+	return xml.EndElement{
+		Name: xml.Name{
+			Local: localName,
+		},
+	}
 }

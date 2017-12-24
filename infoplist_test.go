@@ -52,7 +52,7 @@ func TestInfoPlist(t *testing.T) {
 </dict>
 </plist>
 `
-	actual, err := parseInfoPlist(input)
+	actual, err := parseInfoPlist(input, "")
 	expected := infoPlist{
 		"CFBundleDevelopmentRegion":     "$(DEVELOPMENT_LANGUAGE)",
 		"CFBundleExecutable":            "$(EXECUTABLE_NAME)",
