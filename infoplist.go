@@ -37,6 +37,17 @@ func (p infoPlist) localizable() infoPlist {
 	return out
 }
 
+func (p infoPlist) toEntryMap() entryMap {
+	out := entryMap{}
+	for key, value := range p {
+		out[key] = entry{
+			key:   key,
+			value: value,
+		}
+	}
+	return out
+}
+
 type parser struct {
 	decoder *xml.Decoder
 }

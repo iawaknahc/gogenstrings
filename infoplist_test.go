@@ -94,3 +94,24 @@ func TestInfoPlistLocalizable(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestInfoPlistToEntryMap(t *testing.T) {
+	input := infoPlist{
+		"CFBundleDisplayName":       "MyApp",
+		"NFCReaderUsageDescription": "Use NFC",
+	}
+	actual := input.toEntryMap()
+	expected := entryMap{
+		"CFBundleDisplayName": entry{
+			key:   "CFBundleDisplayName",
+			value: "MyApp",
+		},
+		"NFCReaderUsageDescription": entry{
+			key:   "NFCReaderUsageDescription",
+			value: "Use NFC",
+		},
+	}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fail()
+	}
+}
