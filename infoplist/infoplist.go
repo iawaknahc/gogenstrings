@@ -13,14 +13,14 @@ type parser struct {
 	decoder *xml.Decoder
 }
 
-func (p parser) NextToken() (xml.Token, error) {
+func (p parser) nextToken() (xml.Token, error) {
 	token, err := p.decoder.Token()
 	return token, err
 }
 
 func (p parser) nextNonSpace() *xml.Token {
 	for {
-		token, err := p.NextToken()
+		token, err := p.nextToken()
 		if err != nil {
 			if err == io.EOF {
 				return nil
@@ -124,7 +124,7 @@ func (p parser) expectEndElement(localName string) {
 }
 
 func (p parser) expectCharData() string {
-	token, err := p.NextToken()
+	token, err := p.nextToken()
 	if err != nil {
 		panic(err)
 	}
@@ -155,7 +155,7 @@ func (p parser) parseDictValue() *string {
 		return nil
 	}
 
-	token, err := p.NextToken()
+	token, err := p.nextToken()
 	if err != nil {
 		panic(err)
 	}
