@@ -31,20 +31,22 @@ type genstringsContext struct {
 
 	// Invocation of routine found in source code
 	// The key is translation key
-	routineCalls map[string]routineCall
+	routineCalls     []routineCall
+	routineCallByKey map[string]routineCall
 }
 
 func newGenstringsContext(rootPath, developmentLanguage, routineName string, exclude *regexp.Regexp) genstringsContext {
 	ctx := genstringsContext{
-		rootPath:      rootPath,
-		routineName:   routineName,
-		devlang:       developmentLanguage,
-		excludeRegexp: exclude,
-		inStrings:     make(map[string]entryMap),
-		outStrings:    make(map[string]entryMap),
-		inInfoPlists:  make(map[string]entryMap),
-		outInfoPlists: make(map[string]entryMap),
-		routineCalls:  make(map[string]routineCall),
+		rootPath:         rootPath,
+		routineName:      routineName,
+		devlang:          developmentLanguage,
+		excludeRegexp:    exclude,
+		inStrings:        make(map[string]entryMap),
+		outStrings:       make(map[string]entryMap),
+		inInfoPlists:     make(map[string]entryMap),
+		outInfoPlists:    make(map[string]entryMap),
+		routineCalls:     []routineCall{},
+		routineCallByKey: make(map[string]routineCall),
 	}
 	return ctx
 }
@@ -140,44 +142,57 @@ func (p *genstringsContext) readInfoPlistDotStrings() error {
 	return nil
 }
 
+func (p *genstringsContext) validate() error {
+	return p.validateRoutineCalls()
+}
+
+func (p *genstringsContext) validateRoutineCalls() error {
+	for _, call := range p.routineCalls {
+		// Validate every call has non-empty key
+		if call.key == "" {
+			return fmt.Errorf(
+				"routine call at %v:%v in %v has empty key",
+				call.startLine,
+				call.startCol,
+				call.filepath,
+			)
+		}
+
+		// Validate calls having the same key has the same comment
+		existingCall, ok := p.routineCallByKey[call.key]
+		if ok {
+			if call.comment != existingCall.comment {
+				return fmt.Errorf(
+					"\nroutine call `%v` at %v:%v in %v\nroutine call `%v` at %v:%v in %v\nhave different comments",
+					existingCall.key,
+					existingCall.startLine,
+					existingCall.startCol,
+					existingCall.filepath,
+					call.key,
+					call.startLine,
+					call.startCol,
+					call.filepath,
+				)
+			}
+		}
+		p.routineCallByKey[call.key] = call
+	}
+
+	return nil
+}
+
 func (p *genstringsContext) readRoutineCalls() error {
 	for _, fullpath := range p.sourceFilePaths {
 		content, err := readFile(fullpath)
 		if err != nil {
 			return err
 		}
-		calls, err := parseRoutineCalls(content, p.routineName)
+		calls, err := parseRoutineCalls(content, p.routineName, fullpath)
 		if err != nil {
 			return fmt.Errorf("%v in %v", err, fullpath)
 		}
 		for _, call := range calls {
-			if call.key == "" {
-				return fmt.Errorf(
-					"routine call at %v:%v in %v has empty key",
-					call.startLine,
-					call.startCol,
-					fullpath,
-				)
-			}
-			existingCall, ok := p.routineCalls[call.key]
-			if ok {
-				if call.comment != existingCall.comment {
-					return fmt.Errorf(
-						"\nroutine call `%v` at %v:%v in %v\nroutine call `%v` at %v:%v in %v\nhave different comments",
-						existingCall.key,
-						existingCall.startLine,
-						existingCall.startCol,
-						existingCall.path,
-						call.key,
-						call.startLine,
-						call.startCol,
-						fullpath,
-					)
-				}
-			} else {
-				call.path = fullpath
-				p.routineCalls[call.key] = call
-			}
+			p.routineCalls = append(p.routineCalls, call)
 		}
 	}
 	return nil
@@ -187,7 +202,7 @@ func (p *genstringsContext) process() {
 	devLproj := p.devLproj
 	// Merge development language first
 	oldDevEntryMap := p.inStrings[devLproj]
-	p.outStrings[devLproj] = oldDevEntryMap.mergeCalls(p.routineCalls)
+	p.outStrings[devLproj] = oldDevEntryMap.mergeCalls(p.routineCallByKey)
 
 	// Merge other languages
 	for lproj, lss := range p.inStrings {
@@ -239,6 +254,9 @@ func (p *genstringsContext) genstrings() error {
 		return err
 	}
 	if err := p.read(); err != nil {
+		return err
+	}
+	if err := p.validate(); err != nil {
 		return err
 	}
 	p.process()

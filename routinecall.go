@@ -5,17 +5,17 @@ import (
 )
 
 type routineCall struct {
+	filepath  string
 	startLine int
 	startCol  int
 	key       string
 	comment   string
-	// the first path this routine call is found
-	path string
 }
 
-func parseRoutineCalls(src, routineName string) ([]routineCall, error) {
+func parseRoutineCalls(src, routineName, filepath string) ([]routineCall, error) {
 	l := newLexer(src, lexRoutineCall)
 	p := &routineCallParser{
+		filepath:    filepath,
 		routineName: routineName,
 		lexer:       &l,
 	}
@@ -23,6 +23,7 @@ func parseRoutineCalls(src, routineName string) ([]routineCall, error) {
 }
 
 type routineCallParser struct {
+	filepath    string
 	routineName string
 	lexer       *lexer
 	peekCount   int
@@ -95,6 +96,7 @@ func (p *routineCallParser) parse() (output []routineCall, outerr error) {
 		comment := p.parseString()
 		p.expect(itemParenRight)
 		rc := routineCall{
+			filepath:  p.filepath,
 			startLine: token.StartLine,
 			startCol:  token.StartCol,
 			key:       key,

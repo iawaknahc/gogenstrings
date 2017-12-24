@@ -60,7 +60,7 @@ class MyView: UILabel {
 			comment:   "comment",
 		},
 	}
-	actual, err := parseRoutineCalls(input, routineName)
+	actual, err := parseRoutineCalls(input, routineName, "")
 	if err != nil || !reflect.DeepEqual(actual, expected) {
 		t.Fail()
 	}
