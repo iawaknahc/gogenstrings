@@ -10,6 +10,7 @@ import (
 type genstringsContext struct {
 	// Configuration
 	rootPath      string
+	infoPlistPath string
 	routineName   string
 	devlang       string
 	excludeRegexp *regexp.Regexp
@@ -18,6 +19,9 @@ type genstringsContext struct {
 	lprojs          []string
 	sourceFilePaths []string
 	devLproj        string
+
+	// Info.plist
+	infoPlist infoPlist
 
 	// Localizable.strings
 	// The key is lproj
@@ -37,11 +41,12 @@ type genstringsContext struct {
 	routineCallByKey map[string]routineCall
 }
 
-func newGenstringsContext(rootPath, developmentLanguage, routineName string, exclude *regexp.Regexp) genstringsContext {
+func newGenstringsContext(rootPath, infoPlistPath, devlang, routineName string, exclude *regexp.Regexp) genstringsContext {
 	ctx := genstringsContext{
 		rootPath:      rootPath,
+		infoPlistPath: infoPlistPath,
 		routineName:   routineName,
-		devlang:       developmentLanguage,
+		devlang:       devlang,
 		excludeRegexp: exclude,
 
 		inEntries:   make(map[string]entries),
@@ -94,6 +99,9 @@ func (p *genstringsContext) findSourceFiles() error {
 }
 
 func (p *genstringsContext) read() error {
+	if err := p.readInfoPlist(); err != nil {
+		return err
+	}
 	if err := p.readLocalizableDotStrings(); err != nil {
 		return err
 	}
@@ -103,20 +111,32 @@ func (p *genstringsContext) read() error {
 	return p.readRoutineCalls()
 }
 
+func (p *genstringsContext) readInfoPlist() error {
+	content, err := readFile(p.infoPlistPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return makeErrFile(p.infoPlistPath, "file not found")
+		}
+		return err
+	}
+	out, err := parseInfoPlist(content, p.infoPlistPath)
+	if err != nil {
+		return err
+	}
+	p.infoPlist = out
+	return nil
+}
+
 func (p *genstringsContext) readLocalizableDotStrings() error {
 	for _, lproj := range p.lprojs {
 		fullpath := lproj + "/Localizable.strings"
-		_, err := os.Stat(fullpath)
+		content, err := readFile(fullpath)
 		if err != nil {
 			if !os.IsNotExist(err) {
 				return err
 			}
 			p.inEntries[lproj] = entries{}
 		} else {
-			content, err := readFile(fullpath)
-			if err != nil {
-				return err
-			}
 			es, err := parseDotStrings(content, fullpath)
 			if err != nil {
 				return err
@@ -130,17 +150,13 @@ func (p *genstringsContext) readLocalizableDotStrings() error {
 func (p *genstringsContext) readInfoPlistDotStrings() error {
 	for _, lproj := range p.lprojs {
 		fullpath := lproj + "/InfoPlist.strings"
-		_, err := os.Stat(fullpath)
+		content, err := readFile(fullpath)
 		if err != nil {
 			if !os.IsNotExist(err) {
 				return err
 			}
 			p.inInfoPlistEntries[lproj] = entries{}
 		} else {
-			content, err := readFile(fullpath)
-			if err != nil {
-				return err
-			}
 			es, err := parseDotStrings(content, fullpath)
 			if err != nil {
 				return err
@@ -223,14 +239,17 @@ func (p *genstringsContext) process() {
 		p.outEntryMap[lproj] = em.mergeDev(p.outEntryMap[devLproj])
 	}
 
+	// Merge development language first
+	newInfoPlistEntryMap := p.infoPlist.localizable().toEntryMap()
+	devInfoPlist := p.inInfoPlistEntryMap[devLproj].mergeDev(newInfoPlistEntryMap)
+	p.outInfoPlistEntryMap[devLproj] = devInfoPlist
+
 	// Merge InfoPlist.strings
-	devInfoPlist := p.inInfoPlistEntryMap[devLproj]
 	for lproj, em := range p.inInfoPlistEntryMap {
 		if lproj == devLproj {
-			p.outInfoPlistEntryMap[lproj] = devInfoPlist
-		} else {
-			p.outInfoPlistEntryMap[lproj] = em.mergeDev(devInfoPlist)
+			continue
 		}
+		p.outInfoPlistEntryMap[lproj] = em.mergeDev(devInfoPlist)
 	}
 }
 
@@ -247,13 +266,18 @@ func (p *genstringsContext) write() error {
 	// Write InfoPlist.strings
 	for lproj, em := range p.outInfoPlistEntryMap {
 		sorted := em.toEntries().sort()
-		if len(sorted) <= 0 {
-			continue
-		}
-		content := sorted.print(true)
 		targetPath := lproj + "/InfoPlist.strings"
-		if err := writeFile(targetPath, content); err != nil {
-			return err
+		if len(sorted) <= 0 {
+			if err := os.Remove(targetPath); err != nil {
+				if !os.IsNotExist(err) {
+					return err
+				}
+			}
+		} else {
+			content := sorted.print(true)
+			if err := writeFile(targetPath, content); err != nil {
+				return err
+			}
 		}
 	}
 
