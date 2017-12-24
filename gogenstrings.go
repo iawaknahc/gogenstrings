@@ -17,6 +17,7 @@ type genstringsContext struct {
 	// Result of find
 	lprojs          []string
 	sourceFilePaths []string
+	devLproj        string
 
 	// Localizable.strings
 	// The key is lproj
@@ -48,13 +49,50 @@ func newGenstringsContext(rootPath, developmentLanguage, routineName string, exc
 	return ctx
 }
 
-func (p *genstringsContext) readLprojs() error {
+func (p *genstringsContext) find() error {
+	if err := p.findLprojs(); err != nil {
+		return err
+	}
+	return p.findSourceFiles()
+}
+
+func (p *genstringsContext) findLprojs() error {
 	lprojs, err := findLprojs(p.rootPath)
 	if err != nil {
 		return err
 	}
 	p.lprojs = lprojs
 
+	for _, lproj := range p.lprojs {
+		basename := filepath.Base(lproj)
+		if basename == p.devlang+".lproj" {
+			p.devLproj = lproj
+			return nil
+		}
+	}
+	return fmt.Errorf("cannot lproj of %v", p.devlang)
+}
+
+func (p *genstringsContext) findSourceFiles() error {
+	sourceFilePaths, err := findSourceFiles(p.rootPath, p.excludeRegexp)
+	if err != nil {
+		return err
+	}
+	p.sourceFilePaths = sourceFilePaths
+	return nil
+}
+
+func (p *genstringsContext) read() error {
+	if err := p.readLocalizableDotStrings(); err != nil {
+		return err
+	}
+	if err := p.readInfoPlistDotStrings(); err != nil {
+		return err
+	}
+	return p.readRoutineCalls()
+}
+
+func (p *genstringsContext) readLocalizableDotStrings() error {
 	for _, lproj := range p.lprojs {
 		fullpath := lproj + "/Localizable.strings"
 		_, err := os.Stat(fullpath)
@@ -75,7 +113,10 @@ func (p *genstringsContext) readLprojs() error {
 			p.inStrings[lproj] = lss
 		}
 	}
+	return nil
+}
 
+func (p *genstringsContext) readInfoPlistDotStrings() error {
 	for _, lproj := range p.lprojs {
 		fullpath := lproj + "/InfoPlist.strings"
 		_, err := os.Stat(fullpath)
@@ -96,16 +137,10 @@ func (p *genstringsContext) readLprojs() error {
 			p.inInfoPlists[lproj] = lss
 		}
 	}
-
 	return nil
 }
 
 func (p *genstringsContext) readRoutineCalls() error {
-	sourceFilePaths, err := findSourceFiles(p.rootPath, p.excludeRegexp)
-	if err != nil {
-		return err
-	}
-	p.sourceFilePaths = sourceFilePaths
 	for _, fullpath := range p.sourceFilePaths {
 		content, err := readFile(fullpath)
 		if err != nil {
@@ -148,27 +183,11 @@ func (p *genstringsContext) readRoutineCalls() error {
 	return nil
 }
 
-func (p *genstringsContext) devLproj() string {
-	for _, lproj := range p.lprojs {
-		basename := filepath.Base(lproj)
-		if basename == p.devlang+".lproj" {
-			return lproj
-		}
-	}
-	return ""
-}
-
-func (p *genstringsContext) merge() error {
-	devLproj := p.devLproj()
-	if devLproj == "" {
-		return fmt.Errorf("cannot lproj of %v", p.devlang)
-	}
+func (p *genstringsContext) process() {
+	devLproj := p.devLproj
 	// Merge development language first
-	existingLss, ok := p.inStrings[devLproj]
-	if !ok {
-		return fmt.Errorf("cannot find %v", devLproj)
-	}
-	p.outStrings[devLproj] = existingLss.mergeCalls(p.routineCalls)
+	oldDevEntryMap := p.inStrings[devLproj]
+	p.outStrings[devLproj] = oldDevEntryMap.mergeCalls(p.routineCalls)
 
 	// Merge other languages
 	for lproj, lss := range p.inStrings {
@@ -187,8 +206,6 @@ func (p *genstringsContext) merge() error {
 			p.outInfoPlists[lproj] = lss.mergeDev(devInfoPlist)
 		}
 	}
-
-	return nil
 }
 
 func (p *genstringsContext) write() error {
@@ -218,14 +235,12 @@ func (p *genstringsContext) write() error {
 }
 
 func (p *genstringsContext) genstrings() error {
-	if err := p.readLprojs(); err != nil {
+	if err := p.find(); err != nil {
 		return err
 	}
-	if err := p.readRoutineCalls(); err != nil {
+	if err := p.read(); err != nil {
 		return err
 	}
-	if err := p.merge(); err != nil {
-		return err
-	}
+	p.process()
 	return p.write()
 }
