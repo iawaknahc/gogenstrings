@@ -9,6 +9,34 @@ import (
 
 type InfoPlist map[string]string
 
+func isLocalizableKey(key string) bool {
+	if strings.HasSuffix(key, "UsageDescription") {
+		return true
+	}
+	return key == "CFBundleDisplayName"
+}
+
+func isValueVariable(value string) bool {
+	if strings.HasPrefix(value, "$(") && strings.HasSuffix(value, ")") {
+		return true
+	}
+	return false
+}
+
+func isKeyValueLocalizable(key, value string) bool {
+	return isLocalizableKey(key) && !isValueVariable(value)
+}
+
+func (p InfoPlist) Localizable() InfoPlist {
+	out := InfoPlist{}
+	for key, value := range p {
+		if isKeyValueLocalizable(key, value) {
+			out[key] = value
+		}
+	}
+	return out
+}
+
 type parser struct {
 	decoder *xml.Decoder
 }

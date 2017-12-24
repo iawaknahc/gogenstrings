@@ -69,3 +69,28 @@ func TestInfoPlist(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestInfoPlistLocalizable(t *testing.T) {
+	input := InfoPlist{
+		"CFBundleDevelopmentRegion":     "$(DEVELOPMENT_LANGUAGE)",
+		"CFBundleExecutable":            "$(EXECUTABLE_NAME)",
+		"CFBundleIdentifier":            "$(PRODUCT_BUNDLE_IDENTIFIER)",
+		"CFBundleInfoDictionaryVersion": "6.0",
+		"CFBundleName":                  "$(PRODUCT_NAME)",
+		"CFBundleDisplayName":           "MyApp",
+		"CFBundlePackageType":           "APPL",
+		"CFBundleShortVersionString":    "1.0",
+		"CFBundleVersion":               "1",
+		"UILaunchStoryboardName":        "LaunchScreen",
+		"UIMainStoryboardFile":          "Main",
+		"NFCReaderUsageDescription":     "Use NFC",
+	}
+	actual := input.Localizable()
+	expected := InfoPlist{
+		"CFBundleDisplayName":       "MyApp",
+		"NFCReaderUsageDescription": "Use NFC",
+	}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fail()
+	}
+}
