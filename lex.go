@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -193,4 +194,136 @@ func isIdentifierStart(r rune) bool {
 
 func isIdentifier(r rune) bool {
 	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r == '_' || r >= '0' && r <= '9'
+}
+
+func lexComment(state stateFn) stateFn {
+	return func(l *lexer) stateFn {
+		l.next()
+		l.next()
+		for {
+			if strings.HasPrefix(l.input[l.pos:], "*/") {
+				l.next()
+				l.next()
+				l.emit(itemComment)
+				return state
+			}
+			if r := l.next(); r == eof {
+				return l.unexpectedToken(r)
+			}
+		}
+	}
+}
+
+func lexSpaces(state stateFn) stateFn {
+	return func(l *lexer) stateFn {
+		for {
+			r := l.next()
+			if !isSpace(r) {
+				if r != eof {
+					l.backup()
+				}
+				if l.start < l.pos {
+					l.emit(itemSpaces)
+				}
+				return state
+			}
+		}
+	}
+}
+
+func lexString(state stateFn) stateFn {
+	return func(l *lexer) stateFn {
+		l.next()
+		escaping := false
+		for {
+			r := l.next()
+			switch r {
+			case eof:
+				return l.unexpectedToken(r)
+			case '\\':
+				escaping = !escaping
+			case '"':
+				if !escaping {
+					l.emit(itemString)
+					return state
+				}
+				escaping = false
+			default:
+				escaping = false
+			}
+		}
+	}
+}
+
+func lexEntry(l *lexer) stateFn {
+	for {
+		if strings.HasPrefix(l.input[l.pos:], "/*") {
+			return lexComment(lexEntry)
+		}
+		r := l.next()
+		switch r {
+		case eof:
+			return l.eof()
+		case '"':
+			l.backup()
+			return lexString(lexEntry)
+		case ';':
+			l.emit(itemSemicolon)
+		case '=':
+			l.emit(itemEqualSign)
+		default:
+			if isSpace(r) {
+				l.backup()
+				return lexSpaces(lexEntry)
+			}
+			return l.unexpectedToken(r)
+		}
+	}
+}
+
+func lexIdentifier(state stateFn) stateFn {
+	return func(l *lexer) stateFn {
+		for {
+			r := l.next()
+			if !isIdentifier(r) {
+				if r != eof {
+					l.backup()
+				}
+				l.emit(itemIdentifier)
+				return state
+			}
+		}
+	}
+}
+
+func lexRoutineCall(l *lexer) stateFn {
+	for {
+		r := l.next()
+		switch r {
+		case eof:
+			return l.eof()
+		case '"':
+			l.backup()
+			return lexString(lexRoutineCall)
+		case '@':
+			l.emit(itemAtSign)
+		case '(':
+			l.emit(itemParenLeft)
+		case ')':
+			l.emit(itemParenRight)
+		case ':':
+			l.emit(itemColon)
+		case ',':
+			l.emit(itemComma)
+		default:
+			if isSpace(r) {
+				l.backup()
+				return lexSpaces(lexRoutineCall)
+			} else if isIdentifierStart(r) {
+				return lexIdentifier(lexRoutineCall)
+			} else {
+				l.ignore()
+			}
+		}
+	}
 }
