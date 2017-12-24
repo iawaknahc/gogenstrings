@@ -4,11 +4,11 @@ import (
 	"fmt"
 )
 
-type stringsParser struct {
+type dotStringsParser struct {
 	lexer *lexer
 }
 
-func (p *stringsParser) parse() (output []entry, err error) {
+func (p *dotStringsParser) parse() (output []entry, err error) {
 	defer p.recover(&err)
 	for {
 		token := p.nextNonSpace()
@@ -41,7 +41,7 @@ func (p *stringsParser) parse() (output []entry, err error) {
 	return output, nil
 }
 
-func (p *stringsParser) nextNonSpace() lexItem {
+func (p *dotStringsParser) nextNonSpace() lexItem {
 	for {
 		item := p.lexer.nextItem()
 		if item.Type != itemSpaces {
@@ -50,7 +50,7 @@ func (p *stringsParser) nextNonSpace() lexItem {
 	}
 }
 
-func (p *stringsParser) recover(errp *error) {
+func (p *dotStringsParser) recover(errp *error) {
 	if r := recover(); r != nil {
 		err, ok := r.(error)
 		if !ok {
@@ -60,7 +60,7 @@ func (p *stringsParser) recover(errp *error) {
 	}
 }
 
-func (p *stringsParser) expect(expected itemType) lexItem {
+func (p *dotStringsParser) expect(expected itemType) lexItem {
 	item := p.nextNonSpace()
 	if item.Type != expected {
 		p.unexpected(item)
@@ -68,7 +68,7 @@ func (p *stringsParser) expect(expected itemType) lexItem {
 	return item
 }
 
-func (p *stringsParser) unexpected(item lexItem) {
+func (p *dotStringsParser) unexpected(item lexItem) {
 	if item.Type == itemError {
 		panic(item.Err)
 	} else {
@@ -78,7 +78,7 @@ func (p *stringsParser) unexpected(item lexItem) {
 
 func parseStrings(src string) (entryMap, error) {
 	l := newLexer(src, lexEntry)
-	p := &stringsParser{
+	p := &dotStringsParser{
 		lexer: &l,
 	}
 	lss, err := p.parse()
