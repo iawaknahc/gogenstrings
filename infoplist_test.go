@@ -1,4 +1,4 @@
-package infoplist
+package main
 
 import (
 	"reflect"
@@ -52,8 +52,8 @@ func TestInfoPlist(t *testing.T) {
 </dict>
 </plist>
 `
-	actual, err := ParseInfoPlist(input)
-	expected := InfoPlist{
+	actual, err := parseInfoPlist(input)
+	expected := infoPlist{
 		"CFBundleDevelopmentRegion":     "$(DEVELOPMENT_LANGUAGE)",
 		"CFBundleExecutable":            "$(EXECUTABLE_NAME)",
 		"CFBundleIdentifier":            "$(PRODUCT_BUNDLE_IDENTIFIER)",
@@ -71,7 +71,7 @@ func TestInfoPlist(t *testing.T) {
 }
 
 func TestInfoPlistLocalizable(t *testing.T) {
-	input := InfoPlist{
+	input := infoPlist{
 		"CFBundleDevelopmentRegion":     "$(DEVELOPMENT_LANGUAGE)",
 		"CFBundleExecutable":            "$(EXECUTABLE_NAME)",
 		"CFBundleIdentifier":            "$(PRODUCT_BUNDLE_IDENTIFIER)",
@@ -85,8 +85,8 @@ func TestInfoPlistLocalizable(t *testing.T) {
 		"UIMainStoryboardFile":          "Main",
 		"NFCReaderUsageDescription":     "Use NFC",
 	}
-	actual := input.Localizable()
-	expected := InfoPlist{
+	actual := input.localizable()
+	expected := infoPlist{
 		"CFBundleDisplayName":       "MyApp",
 		"NFCReaderUsageDescription": "Use NFC",
 	}

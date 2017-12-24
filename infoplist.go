@@ -1,4 +1,4 @@
-package infoplist
+package main
 
 import (
 	"encoding/xml"
@@ -7,9 +7,7 @@ import (
 	"strings"
 )
 
-// InfoPlist represents a simplified Info.plist.
-// It only contains key whose value is a string.
-type InfoPlist map[string]string
+type infoPlist map[string]string
 
 func isLocalizableKey(key string) bool {
 	if strings.HasSuffix(key, "UsageDescription") {
@@ -29,9 +27,8 @@ func isKeyValueLocalizable(key, value string) bool {
 	return isLocalizableKey(key) && !isValueVariable(value)
 }
 
-// Localizable produces a InfoPlist whose keys are localizable.
-func (p InfoPlist) Localizable() InfoPlist {
-	out := InfoPlist{}
+func (p infoPlist) localizable() infoPlist {
+	out := infoPlist{}
 	for key, value := range p {
 		if isKeyValueLocalizable(key, value) {
 			out[key] = value
@@ -205,9 +202,9 @@ func (p parser) parseDictValue() *string {
 	return nil
 }
 
-func (p parser) parseDict() InfoPlist {
+func (p parser) parseDict() infoPlist {
 	p.expectStartElement("dict")
-	out := InfoPlist{}
+	out := infoPlist{}
 Loop:
 	for {
 		expected := "<key> or </dict>"
@@ -235,7 +232,7 @@ Loop:
 	return out
 }
 
-func (p parser) parsePlist() InfoPlist {
+func (p parser) parsePlist() infoPlist {
 	p.expectStartElement("plist")
 	out := p.parseDict()
 	p.expectEndElement("plist")
@@ -249,7 +246,7 @@ func (p parser) expectEOF() {
 	}
 }
 
-func (p parser) parse() InfoPlist {
+func (p parser) parse() infoPlist {
 	p.expectXMLHeader()
 	p.expectDocType()
 	out := p.parsePlist()
@@ -257,8 +254,7 @@ func (p parser) parse() InfoPlist {
 	return out
 }
 
-// ParseInfoPlist parses Info.plist in XML format.
-func ParseInfoPlist(src string) (out InfoPlist, err error) {
+func parseInfoPlist(src string) (out infoPlist, err error) {
 	reader := strings.NewReader(src)
 	decoder := xml.NewDecoder(reader)
 	p := parser{decoder}
