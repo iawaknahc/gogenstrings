@@ -72,12 +72,12 @@ func (p *dotStringsParser) unexpected(item lexItem) {
 	if item.Type == itemError {
 		panic(item.Err)
 	} else {
-		panic(fmt.Errorf("unexpected token %v", item))
+		panic(item.unexpectedTokenErr())
 	}
 }
 
-func parseDotStrings(src string) (entryMap, error) {
-	l := newLexer(src, lexEntry)
+func parseDotStrings(src, filepath string) (entryMap, error) {
+	l := newLexer(src, filepath, lexEntry)
 	p := &dotStringsParser{
 		lexer: &l,
 	}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	"unicode/utf8"
 )
@@ -12,7 +11,7 @@ func readFile(filename string) (string, error) {
 		return "", err
 	}
 	if !utf8.Valid(bytes) {
-		return "", fmt.Errorf("%v is not UTF-8 encoded", filename)
+		return "", makeErrFile(filename, "file is not UTF-8 encoded")
 	}
 	return string(bytes), nil
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 )
@@ -65,14 +66,16 @@ func (p *genstringsContext) findLprojs() error {
 	}
 	p.lprojs = lprojs
 
+	targetBasename := p.devlang + ".lproj"
+
 	for _, lproj := range p.lprojs {
 		basename := filepath.Base(lproj)
-		if basename == p.devlang+".lproj" {
+		if basename == targetBasename {
 			p.devLproj = lproj
 			return nil
 		}
 	}
-	return fmt.Errorf("cannot lproj of %v", p.devlang)
+	return makeErrFile(path.Join(p.rootPath, targetBasename), "directory not found")
 }
 
 func (p *genstringsContext) findSourceFiles() error {
@@ -108,9 +111,9 @@ func (p *genstringsContext) readLocalizableDotStrings() error {
 			if err != nil {
 				return err
 			}
-			lss, err := parseDotStrings(content)
+			lss, err := parseDotStrings(content, fullpath)
 			if err != nil {
-				return fmt.Errorf("%v in %v", err, fullpath)
+				return err
 			}
 			p.inStrings[lproj] = lss
 		}
@@ -132,9 +135,9 @@ func (p *genstringsContext) readInfoPlistDotStrings() error {
 			if err != nil {
 				return err
 			}
-			lss, err := parseDotStrings(content)
+			lss, err := parseDotStrings(content, fullpath)
 			if err != nil {
-				return fmt.Errorf("%v in %v", err, fullpath)
+				return err
 			}
 			p.inInfoPlists[lproj] = lss
 		}
@@ -150,11 +153,11 @@ func (p *genstringsContext) validateRoutineCalls() error {
 	for _, call := range p.routineCalls {
 		// Validate every call has non-empty key
 		if call.key == "" {
-			return fmt.Errorf(
-				"routine call at %v:%v in %v has empty key",
+			return makeErrFileLineCol(
+				call.filepath,
 				call.startLine,
 				call.startCol,
-				call.filepath,
+				"routine call has empty key",
 			)
 		}
 
@@ -162,16 +165,11 @@ func (p *genstringsContext) validateRoutineCalls() error {
 		existingCall, ok := p.routineCallByKey[call.key]
 		if ok {
 			if call.comment != existingCall.comment {
-				return fmt.Errorf(
-					"\nroutine call `%v` at %v:%v in %v\nroutine call `%v` at %v:%v in %v\nhave different comments",
-					existingCall.key,
-					existingCall.startLine,
-					existingCall.startCol,
-					existingCall.filepath,
-					call.key,
+				return makeErrFileLineCol(
+					call.filepath,
 					call.startLine,
 					call.startCol,
-					call.filepath,
+					fmt.Sprintf("routine call `%v` has different comment", call.key),
 				)
 			}
 		}
@@ -189,7 +187,7 @@ func (p *genstringsContext) readRoutineCalls() error {
 		}
 		calls, err := parseRoutineCalls(content, p.routineName, fullpath)
 		if err != nil {
-			return fmt.Errorf("%v in %v", err, fullpath)
+			return err
 		}
 		for _, call := range calls {
 			p.routineCalls = append(p.routineCalls, call)

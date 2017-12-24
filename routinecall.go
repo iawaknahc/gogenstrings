@@ -1,9 +1,5 @@
 package main
 
-import (
-	"fmt"
-)
-
 type routineCall struct {
 	filepath  string
 	startLine int
@@ -13,7 +9,7 @@ type routineCall struct {
 }
 
 func parseRoutineCalls(src, routineName, filepath string) ([]routineCall, error) {
-	l := newLexer(src, lexRoutineCall)
+	l := newLexer(src, filepath, lexRoutineCall)
 	p := &routineCallParser{
 		filepath:    filepath,
 		routineName: routineName,
@@ -75,7 +71,7 @@ func (p *routineCallParser) unexpected(item lexItem) {
 	if item.Type == itemError {
 		panic(item.Err)
 	} else {
-		panic(fmt.Errorf("unexpected token %v", item))
+		panic(item.unexpectedTokenErr())
 	}
 }
 

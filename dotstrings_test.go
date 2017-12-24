@@ -24,19 +24,19 @@ func TestParseDotStrings(t *testing.T) {
 			value: "value",
 		},
 	}
-	actual, err := parseDotStrings(input)
+	actual, err := parseDotStrings(input, "")
 	if err != nil || !reflect.DeepEqual(actual, expected) {
 		t.Fail()
 	}
 
 	input = `a = "b";`
-	actual, err = parseDotStrings(input)
+	actual, err = parseDotStrings(input, "")
 	if err == nil {
 		t.Fail()
 	}
 
 	input = `"a"="b";"a"="c";`
-	actual, err = parseDotStrings(input)
+	actual, err = parseDotStrings(input, "")
 	if err == nil {
 		t.Fail()
 	}

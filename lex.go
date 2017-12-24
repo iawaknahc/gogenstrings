@@ -30,6 +30,7 @@ type lexItem struct {
 	Type      itemType
 	Value     string
 	Err       error
+	Filepath  string
 	Start     int
 	End       int
 	StartLine int
@@ -38,40 +39,36 @@ type lexItem struct {
 	EndCol    int
 }
 
-func (i lexItem) String() string {
-	switch i.Type {
-	case itemError:
-		return fmt.Sprintf("%v at %v:%v", i.Err, i.EndLine, i.EndCol)
-	case itemEOF:
-		return fmt.Sprintf("EOF")
-	case itemEqualSign:
-		fallthrough
-	case itemSemicolon:
-		return fmt.Sprintf("%v at %v:%v", i.Value, i.EndLine, i.EndCol)
-	default:
-		return fmt.Sprintf("%q from %v:%v to %v:%v", i.Value, i.StartLine, i.StartCol, i.EndLine, i.EndCol)
-	}
+func (i lexItem) unexpectedTokenErr() errFileLineCol {
+	return makeErrFileLineCol(
+		i.Filepath,
+		i.EndLine,
+		i.EndCol-1,
+		fmt.Sprintf("unexpected token `%v`", i.Value),
+	)
 }
 
 type stateFn func(*lexer) stateFn
 
 type lexer struct {
-	state   stateFn
-	input   string
-	start   int
-	pos     int
-	line    int
-	linePos []int
-	width   int
-	items   chan lexItem
+	state    stateFn
+	filepath string
+	input    string
+	start    int
+	pos      int
+	line     int
+	linePos  []int
+	width    int
+	items    chan lexItem
 }
 
-func newLexer(input string, state stateFn) lexer {
+func newLexer(input, filepath string, state stateFn) lexer {
 	l := lexer{
-		state:   state,
-		input:   input,
-		linePos: []int{-1},
-		items:   make(chan lexItem, 2),
+		state:    state,
+		filepath: filepath,
+		input:    input,
+		linePos:  []int{-1},
+		items:    make(chan lexItem, 2),
 	}
 	go l.run()
 	return l
@@ -126,6 +123,7 @@ func (l *lexer) emit(typ itemType) {
 	item := lexItem{
 		Type:      typ,
 		Value:     l.input[l.start:l.pos],
+		Filepath:  l.filepath,
 		Start:     l.start,
 		End:       l.pos,
 		StartLine: l.getLine(l.start),
@@ -138,11 +136,18 @@ func (l *lexer) emit(typ itemType) {
 }
 
 func (l *lexer) unexpectedToken(r rune) stateFn {
+	endLine := l.getLine(l.pos)
+	endCol := l.getCol(l.pos)
 	var err error
 	if r == eof {
-		err = fmt.Errorf("unexpected EOF")
+		err = makeErrFileLineCol(l.filepath, endLine, endCol-1, "unexpected EOF")
 	} else {
-		err = fmt.Errorf("unexpected token `%c`", r)
+		err = makeErrFileLineCol(
+			l.filepath,
+			endLine,
+			endCol-1,
+			fmt.Sprintf("unexpected token `%c`", r),
+		)
 	}
 	item := lexItem{
 		Type:      itemError,
@@ -151,8 +156,8 @@ func (l *lexer) unexpectedToken(r rune) stateFn {
 		End:       l.pos,
 		StartLine: l.getLine(l.start),
 		StartCol:  l.getCol(l.start),
-		EndLine:   l.getLine(l.pos),
-		EndCol:    l.getCol(l.pos),
+		EndLine:   endLine,
+		EndCol:    endCol,
 	}
 	l.start = l.pos
 	l.items <- item
