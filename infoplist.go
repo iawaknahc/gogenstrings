@@ -59,7 +59,6 @@ func (p parser) nextNonSpace() *xml.Token {
 			return &token
 		}
 	}
-	return nil
 }
 
 func (p parser) recover(errp *error) {
