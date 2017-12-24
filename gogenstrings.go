@@ -68,7 +68,7 @@ func (p *genstringsContext) readLprojs() error {
 			if err != nil {
 				return err
 			}
-			lss, err := parseStrings(content)
+			lss, err := parseDotStrings(content)
 			if err != nil {
 				return fmt.Errorf("%v in %v", err, fullpath)
 			}
@@ -89,7 +89,7 @@ func (p *genstringsContext) readLprojs() error {
 			if err != nil {
 				return err
 			}
-			lss, err := parseStrings(content)
+			lss, err := parseDotStrings(content)
 			if err != nil {
 				return fmt.Errorf("%v in %v", err, fullpath)
 			}

@@ -76,7 +76,7 @@ func (p *dotStringsParser) unexpected(item lexItem) {
 	}
 }
 
-func parseStrings(src string) (entryMap, error) {
+func parseDotStrings(src string) (entryMap, error) {
 	l := newLexer(src, lexEntry)
 	p := &dotStringsParser{
 		lexer: &l,
