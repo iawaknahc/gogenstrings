@@ -111,7 +111,7 @@ func (p *genstringsContext) readRoutineCalls() error {
 		if err != nil {
 			return err
 		}
-		calls, err := parseRoutineCall(content, p.routineName)
+		calls, err := parseRoutineCalls(content, p.routineName)
 		if err != nil {
 			return fmt.Errorf("%v in %v", err, fullpath)
 		}

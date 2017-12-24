@@ -13,7 +13,7 @@ type routineCall struct {
 	path string
 }
 
-func parseRoutineCall(src, routineName string) ([]routineCall, error) {
+func parseRoutineCalls(src, routineName string) ([]routineCall, error) {
 	l := newLexer(src, lexRoutineCall)
 	p := &routineCallParser{
 		routineName: routineName,
