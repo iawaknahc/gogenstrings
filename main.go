@@ -7,7 +7,7 @@ import (
 	"regexp"
 )
 
-func parseExclude(pattern string) (*regexp.Regexp, error) {
+func parseOptionalRegexp(pattern string) (*regexp.Regexp, error) {
 	if pattern == "" {
 		return nil, nil
 	}
@@ -24,7 +24,7 @@ func main() {
 	routinePtr := flag.String("routine", "NSLocalizedString", "the routine name to extract")
 	excludePtr := flag.String("exclude", "", "the regexp to exclude")
 	flag.Parse()
-	excludeRe, err := parseExclude(*excludePtr)
+	excludeRe, err := parseOptionalRegexp(*excludePtr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
