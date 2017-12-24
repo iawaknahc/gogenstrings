@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -195,8 +194,8 @@ func (p *genstringsContext) merge() error {
 func (p *genstringsContext) write() error {
 	// Write Localizable.strings
 	for lproj, lss := range p.outStrings {
-		sorted := lss.sort()
-		content := printStrings(sorted, false)
+		sorted := lss.toEntries().sort()
+		content := sorted.print(false)
 		targetPath := lproj + "/Localizable.strings"
 		if err := writeFile(targetPath, content); err != nil {
 			return err
@@ -204,11 +203,11 @@ func (p *genstringsContext) write() error {
 	}
 	// Write InfoPlist.strings
 	for lproj, lss := range p.outInfoPlists {
-		sorted := lss.sort()
+		sorted := lss.toEntries().sort()
 		if len(sorted) <= 0 {
 			continue
 		}
-		content := printStrings(sorted, true)
+		content := sorted.print(true)
 		targetPath := lproj + "/InfoPlist.strings"
 		if err := writeFile(targetPath, content); err != nil {
 			return err
@@ -229,12 +228,4 @@ func (p *genstringsContext) genstrings() error {
 		return err
 	}
 	return p.write()
-}
-
-func printStrings(lss []entry, suppressEmptyComment bool) string {
-	buf := bytes.Buffer{}
-	for _, ls := range lss {
-		buf.WriteString(ls.print(suppressEmptyComment))
-	}
-	return buf.String()
 }

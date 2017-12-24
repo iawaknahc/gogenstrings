@@ -1,55 +1,47 @@
 package main
 
-import (
-	"sort"
-)
-
 type entryMap map[string]entry
 
-func (lss entryMap) mergeCalls(rcs map[string]routineCall) entryMap {
+func (p entryMap) mergeCalls(calls map[string]routineCall) entryMap {
 	output := entryMap{}
 	// Copy and merge existing entry if they are still in use
-	for key, ls := range lss {
-		if rc, ok := rcs[key]; ok {
-			output[key] = ls.mergeCall(rc)
+	for key, entry := range p {
+		if call, ok := calls[key]; ok {
+			output[key] = entry.mergeCall(call)
 		}
 	}
 	// Copy new routine call
-	for key, rc := range rcs {
+	for key, call := range calls {
 		if _, ok := output[key]; !ok {
 			output[key] = entry{
-				comment: rc.comment,
-				key:     rc.key,
-				value:   rc.key,
+				comment: call.comment,
+				key:     call.key,
+				value:   call.key,
 			}
 		}
 	}
 	return output
 }
 
-func (lss entryMap) mergeDev(dev entryMap) entryMap {
+func (p entryMap) mergeDev(dev entryMap) entryMap {
 	output := entryMap{}
-	for key, ls := range lss {
-		if devLs, ok := dev[key]; ok {
-			output[key] = ls.mergeDev(devLs)
+	for key, entry := range p {
+		if devEntry, ok := dev[key]; ok {
+			output[key] = entry.mergeDev(devEntry)
 		}
 	}
-	for key, devLs := range dev {
+	for key, devEntry := range dev {
 		if _, ok := output[key]; !ok {
-			output[key] = devLs
+			output[key] = devEntry
 		}
 	}
 	return output
 }
 
-func (lss entryMap) sort() []entry {
-	slice := []entry{}
-	for _, ls := range lss {
-		slice = append(slice, ls)
+func (p entryMap) toEntries() entries {
+	out := entries{}
+	for _, entry := range p {
+		out = append(out, entry)
 	}
-	less := func(i, j int) bool {
-		return slice[i].key < slice[j].key
-	}
-	sort.SliceStable(slice, less)
-	return slice
+	return out
 }

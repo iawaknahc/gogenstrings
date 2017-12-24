@@ -84,8 +84,8 @@ func TestEntryMapMergeDev(t *testing.T) {
 	}
 }
 
-func TestEntryMapSort(t *testing.T) {
-	em := entryMap{
+func TestEntryMapToEntries(t *testing.T) {
+	input := entryMap{
 		"a": entry{
 			key: "a",
 		},
@@ -96,7 +96,7 @@ func TestEntryMapSort(t *testing.T) {
 			key: "0",
 		},
 	}
-	expected := []entry{
+	expected := entries{
 		entry{
 			key: "0",
 		},
@@ -107,8 +107,8 @@ func TestEntryMapSort(t *testing.T) {
 			key: "a",
 		},
 	}
-	actual := em.sort()
-	if !reflect.DeepEqual(actual, expected) {
+	actual := input.toEntries()
+	if len(actual) != len(expected) {
 		t.Fail()
 	}
 }
