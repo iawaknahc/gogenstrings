@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"unicode/utf8"
 )
@@ -95,7 +94,7 @@ func (l *lexer) next() rune {
 	}
 	r, w := utf8.DecodeRuneInString(l.input[l.pos:])
 	if r == '\n' {
-		l.line += 1
+		l.line++
 		l.linePos = append(l.linePos, l.pos)
 	}
 	l.pos += w
@@ -107,7 +106,7 @@ func (l *lexer) backup() {
 	l.pos -= l.width
 	r, _ := utf8.DecodeRuneInString(l.input[l.pos:])
 	if r == '\n' {
-		l.line -= 1
+		l.line--
 		l.linePos = l.linePos[:len(l.linePos)-1]
 	}
 }
@@ -140,9 +139,9 @@ func (l *lexer) emit(typ itemType) {
 func (l *lexer) unexpectedToken(r rune) stateFn {
 	var err error
 	if r == eof {
-		err = errors.New("unexpected EOF")
+		err = fmt.Errorf("unexpected EOF")
 	} else {
-		err = errors.New(fmt.Sprintf("unexpected token `%c`", r))
+		err = fmt.Errorf("unexpected token `%c`", r)
 	}
 	item := lexItem{
 		Type:      itemError,
@@ -165,7 +164,7 @@ func (l *lexer) eof() stateFn {
 }
 
 func (l *lexer) getLine(pos int) int {
-	for i := len(l.linePos) - 1; i >= 0; i -= 1 {
+	for i := len(l.linePos) - 1; i >= 0; i-- {
 		linePos := l.linePos[i]
 		if pos >= linePos {
 			return i + 1
@@ -175,7 +174,7 @@ func (l *lexer) getLine(pos int) int {
 }
 
 func (l *lexer) getCol(pos int) int {
-	for i := len(l.linePos) - 1; i >= 0; i -= 1 {
+	for i := len(l.linePos) - 1; i >= 0; i-- {
 		linePos := l.linePos[i]
 		if pos >= linePos {
 			return pos - linePos

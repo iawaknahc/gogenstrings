@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+// InfoPlist represents a simplified Info.plist.
+// It only contains key whose value is a string.
 type InfoPlist map[string]string
 
 func isLocalizableKey(key string) bool {
@@ -27,6 +29,7 @@ func isKeyValueLocalizable(key, value string) bool {
 	return isLocalizableKey(key) && !isValueVariable(value)
 }
 
+// Localizable produces a InfoPlist whose keys are localizable.
 func (p InfoPlist) Localizable() InfoPlist {
 	out := InfoPlist{}
 	for key, value := range p {
@@ -254,6 +257,7 @@ func (p parser) parse() InfoPlist {
 	return out
 }
 
+// ParseInfoPlist parses Info.plist in XML format.
 func ParseInfoPlist(src string) (out InfoPlist, err error) {
 	reader := strings.NewReader(src)
 	decoder := xml.NewDecoder(reader)

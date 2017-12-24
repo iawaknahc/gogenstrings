@@ -59,9 +59,8 @@ func lexString(state stateFn) stateFn {
 				if !escaping {
 					l.emit(itemString)
 					return state
-				} else {
-					escaping = false
 				}
+				escaping = false
 			default:
 				escaping = false
 			}
@@ -362,10 +361,7 @@ func (p *genstringsContext) genstrings() error {
 	if err := p.merge(); err != nil {
 		return err
 	}
-	if err := p.write(); err != nil {
-		return err
-	}
-	return nil
+	return p.write()
 }
 
 type stringsParser struct {
