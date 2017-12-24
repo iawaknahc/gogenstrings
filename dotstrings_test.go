@@ -13,15 +13,19 @@ func TestParseDotStrings(t *testing.T) {
 "key_without_comment" ="value";
 
 	`
-	expected := entryMap{
-		"key_with_comment": entry{
-			key:     "key_with_comment",
-			value:   "value",
-			comment: "has_comment",
+	expected := entries{
+		entry{
+			startLine: 3,
+			startCol:  1,
+			key:       "key_with_comment",
+			value:     "value",
+			comment:   "has_comment",
 		},
-		"key_without_comment": entry{
-			key:   "key_without_comment",
-			value: "value",
+		entry{
+			startLine: 5,
+			startCol:  1,
+			key:       "key_without_comment",
+			value:     "value",
 		},
 	}
 	actual, err := parseDotStrings(input, "")
@@ -30,12 +34,6 @@ func TestParseDotStrings(t *testing.T) {
 	}
 
 	input = `a = "b";`
-	actual, err = parseDotStrings(input, "")
-	if err == nil {
-		t.Fail()
-	}
-
-	input = `"a"="b";"a"="c";`
 	actual, err = parseDotStrings(input, "")
 	if err == nil {
 		t.Fail()

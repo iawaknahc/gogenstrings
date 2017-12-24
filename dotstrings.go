@@ -1,14 +1,11 @@
 package main
 
-import (
-	"fmt"
-)
-
 type dotStringsParser struct {
-	lexer *lexer
+	filepath string
+	lexer    *lexer
 }
 
-func (p *dotStringsParser) parse() (output []entry, err error) {
+func (p *dotStringsParser) parse() (output entries, err error) {
 	defer p.recover(&err)
 	for {
 		token := p.nextNonSpace()
@@ -32,9 +29,12 @@ func (p *dotStringsParser) parse() (output []entry, err error) {
 		value := p.expect(itemString)
 		p.expect(itemSemicolon)
 		ls := entry{
-			comment: comment,
-			key:     getStringValue(key.Value),
-			value:   getStringValue(value.Value),
+			filepath:  p.filepath,
+			startLine: key.StartLine,
+			startCol:  key.StartCol,
+			comment:   comment,
+			key:       getStringValue(key.Value),
+			value:     getStringValue(value.Value),
 		}
 		output = append(output, ls)
 	}
@@ -76,21 +76,11 @@ func (p *dotStringsParser) unexpected(item lexItem) {
 	}
 }
 
-func parseDotStrings(src, filepath string) (entryMap, error) {
+func parseDotStrings(src, filepath string) (entries, error) {
 	l := newLexer(src, filepath, lexEntry)
 	p := &dotStringsParser{
-		lexer: &l,
+		filepath: filepath,
+		lexer:    &l,
 	}
-	lss, err := p.parse()
-	if err != nil {
-		return nil, err
-	}
-	output := entryMap{}
-	for _, ls := range lss {
-		if _, ok := output[ls.key]; ok {
-			return nil, fmt.Errorf("duplicated key %q", ls.key)
-		}
-		output[ls.key] = ls
-	}
-	return output, nil
+	return p.parse()
 }

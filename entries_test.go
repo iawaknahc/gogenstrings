@@ -79,3 +79,39 @@ func TestEntriesPrint(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestEntriesToEntryMap(t *testing.T) {
+	input := entries{
+		entry{
+			key: "a",
+		},
+		entry{
+			key: "a",
+		},
+	}
+	actual, err := input.toEntryMap()
+	if err == nil {
+		t.Fail()
+	}
+
+	input = entries{
+		entry{
+			key: "a",
+		},
+		entry{
+			key: "b",
+		},
+	}
+	actual, err = input.toEntryMap()
+	expected := entryMap{
+		"a": entry{
+			key: "a",
+		},
+		"b": entry{
+			key: "b",
+		},
+	}
+	if err != nil || !reflect.DeepEqual(actual, expected) {
+		t.Fail()
+	}
+}

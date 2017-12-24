@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"sort"
 )
 
@@ -23,4 +24,20 @@ func (p entries) print(suppressEmptyComment bool) string {
 		buf.WriteString(entry.print(suppressEmptyComment))
 	}
 	return buf.String()
+}
+
+func (p entries) toEntryMap() (entryMap, error) {
+	em := entryMap{}
+	for _, e := range p {
+		if _, ok := em[e.key]; ok {
+			return nil, makeErrFileLineCol(
+				e.filepath,
+				e.startLine,
+				e.startCol,
+				fmt.Sprintf("duplicated key `%v`", e.key),
+			)
+		}
+		em[e.key] = e
+	}
+	return em, nil
 }

@@ -13,9 +13,12 @@ func getStringValue(s string) string {
 }
 
 type entry struct {
-	comment string
-	key     string
-	value   string
+	filepath  string
+	startLine int
+	startCol  int
+	comment   string
+	key       string
+	value     string
 }
 
 func (ls entry) mergeCall(rc routineCall) entry {
