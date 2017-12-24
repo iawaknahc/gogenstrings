@@ -1,5 +1,9 @@
 package main
 
+import (
+	"fmt"
+)
+
 type routineCall struct {
 	filepath  string
 	startLine int
@@ -8,7 +12,40 @@ type routineCall struct {
 	comment   string
 }
 
-func parseRoutineCalls(src, routineName, filepath string) ([]routineCall, error) {
+type routineCallSlice []routineCall
+
+func (p routineCallSlice) toMap() (map[string]routineCall, error) {
+	out := map[string]routineCall{}
+	for _, call := range p {
+		// Validate every call has non-empty key
+		if call.key == "" {
+			return nil, makeErrFileLineCol(
+				call.filepath,
+				call.startLine,
+				call.startCol,
+				"routine call has empty key",
+			)
+		}
+
+		// Validate calls having the same key has the same comment
+		existingCall, ok := out[call.key]
+		if ok {
+			if call.comment != existingCall.comment {
+				return nil, makeErrFileLineCol(
+					call.filepath,
+					call.startLine,
+					call.startCol,
+					fmt.Sprintf("routine call `%v` has different comment", call.key),
+				)
+			}
+		}
+
+		out[call.key] = call
+	}
+	return out, nil
+}
+
+func parseRoutineCalls(src, routineName, filepath string) (routineCallSlice, error) {
 	l := newLexer(src, filepath, lexRoutineCall)
 	p := &routineCallParser{
 		filepath:    filepath,
@@ -75,7 +112,7 @@ func (p *routineCallParser) unexpected(item lexItem) {
 	}
 }
 
-func (p *routineCallParser) parse() (output []routineCall, outerr error) {
+func (p *routineCallParser) parse() (output routineCallSlice, outerr error) {
 	defer p.recover(&outerr)
 	for {
 		token := p.nextNonSpace()

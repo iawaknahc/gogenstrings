@@ -22,7 +22,7 @@ class MyView: UILabel {
 	}
 }
 `
-	expected := []routineCall{
+	expected := routineCallSlice{
 		routineCall{
 			startLine: 7,
 			startCol:  15,
@@ -61,6 +61,48 @@ class MyView: UILabel {
 		},
 	}
 	actual, err := parseRoutineCalls(input, routineName, "")
+	if err != nil || !reflect.DeepEqual(actual, expected) {
+		t.Fail()
+	}
+}
+
+func TestRoutineCallSliceToMap(t *testing.T) {
+	input := routineCallSlice{
+		routineCall{},
+	}
+	actual, err := input.toMap()
+	if err == nil {
+		t.Fail()
+	}
+
+	input = routineCallSlice{
+		routineCall{
+			key:     "a",
+			comment: "1",
+		},
+		routineCall{
+			key:     "a",
+			comment: "2",
+		},
+	}
+	actual, err = input.toMap()
+	if err == nil {
+		t.Fail()
+	}
+
+	input = routineCallSlice{
+		routineCall{
+			key:     "a",
+			comment: "1",
+		},
+	}
+	actual, err = input.toMap()
+	expected := map[string]routineCall{
+		"a": routineCall{
+			key:     "a",
+			comment: "1",
+		},
+	}
 	if err != nil || !reflect.DeepEqual(actual, expected) {
 		t.Fail()
 	}

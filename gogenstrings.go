@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -34,7 +33,7 @@ type genstringsContext struct {
 
 	// Invocation of routine found in source code
 	// The key is translation key
-	routineCalls     []routineCall
+	routineCalls     routineCallSlice
 	routineCallByKey map[string]routineCall
 }
 
@@ -185,32 +184,11 @@ func (p *genstringsContext) validateInfoPlistDotStrings() error {
 }
 
 func (p *genstringsContext) validateRoutineCalls() error {
-	for _, call := range p.routineCalls {
-		// Validate every call has non-empty key
-		if call.key == "" {
-			return makeErrFileLineCol(
-				call.filepath,
-				call.startLine,
-				call.startCol,
-				"routine call has empty key",
-			)
-		}
-
-		// Validate calls having the same key has the same comment
-		existingCall, ok := p.routineCallByKey[call.key]
-		if ok {
-			if call.comment != existingCall.comment {
-				return makeErrFileLineCol(
-					call.filepath,
-					call.startLine,
-					call.startCol,
-					fmt.Sprintf("routine call `%v` has different comment", call.key),
-				)
-			}
-		}
-		p.routineCallByKey[call.key] = call
+	out, err := p.routineCalls.toMap()
+	if err != nil {
+		return err
 	}
-
+	p.routineCallByKey = out
 	return nil
 }
 
