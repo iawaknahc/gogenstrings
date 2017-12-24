@@ -51,24 +51,23 @@ func (i lexItem) unexpectedTokenErr() errFileLineCol {
 type stateFn func(*lexer) stateFn
 
 type lexer struct {
-	state    stateFn
-	filepath string
-	input    string
-	start    int
-	pos      int
-	line     int
-	linePos  []int
-	width    int
-	items    chan lexItem
+	state     stateFn
+	filepath  string
+	input     string
+	start     int
+	pos       int
+	width     int
+	lineColer LineColer
+	items     chan lexItem
 }
 
 func newLexer(input, filepath string, state stateFn) lexer {
 	l := lexer{
-		state:    state,
-		filepath: filepath,
-		input:    input,
-		linePos:  []int{-1},
-		items:    make(chan lexItem, 2),
+		state:     state,
+		filepath:  filepath,
+		lineColer: NewLineColer(input),
+		input:     input,
+		items:     make(chan lexItem, 2),
 	}
 	go l.run()
 	return l
@@ -91,10 +90,6 @@ func (l *lexer) next() rune {
 		return eof
 	}
 	r, w := utf8.DecodeRuneInString(l.input[l.pos:])
-	if r == '\n' {
-		l.line++
-		l.linePos = append(l.linePos, l.pos)
-	}
 	l.pos += w
 	l.width = w
 	return r
@@ -102,11 +97,6 @@ func (l *lexer) next() rune {
 
 func (l *lexer) backup() {
 	l.pos -= l.width
-	r, _ := utf8.DecodeRuneInString(l.input[l.pos:])
-	if r == '\n' {
-		l.line--
-		l.linePos = l.linePos[:len(l.linePos)-1]
-	}
 }
 
 func (l *lexer) peek() rune {
@@ -120,24 +110,26 @@ func (l *lexer) ignore() {
 }
 
 func (l *lexer) emit(typ itemType) {
+	startLine, startCol := l.lineCol(l.start)
+	endLine, endCol := l.lineCol(l.pos)
 	item := lexItem{
 		Type:      typ,
 		Value:     l.input[l.start:l.pos],
 		Filepath:  l.filepath,
 		Start:     l.start,
 		End:       l.pos,
-		StartLine: l.getLine(l.start),
-		StartCol:  l.getCol(l.start),
-		EndLine:   l.getLine(l.pos),
-		EndCol:    l.getCol(l.pos),
+		StartLine: startLine,
+		StartCol:  startCol,
+		EndLine:   endLine,
+		EndCol:    endCol,
 	}
 	l.start = l.pos
 	l.items <- item
 }
 
 func (l *lexer) unexpectedToken(r rune) stateFn {
-	endLine := l.getLine(l.pos)
-	endCol := l.getCol(l.pos)
+	startLine, startCol := l.lineCol(l.start)
+	endLine, endCol := l.lineCol(l.pos)
 	var err error
 	if r == eof {
 		err = makeErrFileLineCol(l.filepath, endLine, endCol-1, "unexpected EOF")
@@ -154,8 +146,8 @@ func (l *lexer) unexpectedToken(r rune) stateFn {
 		Err:       err,
 		Start:     l.start,
 		End:       l.pos,
-		StartLine: l.getLine(l.start),
-		StartCol:  l.getCol(l.start),
+		StartLine: startLine,
+		StartCol:  startCol,
 		EndLine:   endLine,
 		EndCol:    endCol,
 	}
@@ -169,24 +161,8 @@ func (l *lexer) eof() stateFn {
 	return nil
 }
 
-func (l *lexer) getLine(pos int) int {
-	for i := len(l.linePos) - 1; i >= 0; i-- {
-		linePos := l.linePos[i]
-		if pos >= linePos {
-			return i + 1
-		}
-	}
-	return 1
-}
-
-func (l *lexer) getCol(pos int) int {
-	for i := len(l.linePos) - 1; i >= 0; i-- {
-		linePos := l.linePos[i]
-		if pos >= linePos {
-			return pos - linePos
-		}
-	}
-	return 1
+func (l *lexer) lineCol(offset int) (line, col int) {
+	return l.lineColer.LineCol(offset)
 }
 
 func isSpace(r rune) bool {
