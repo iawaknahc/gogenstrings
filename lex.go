@@ -19,6 +19,7 @@ const (
 	itemComment
 	itemSpaces
 	itemString
+	itemBareString
 	itemEqualSign
 	itemSemicolon
 	itemAtSign
@@ -27,7 +28,53 @@ const (
 	itemIdentifier
 	itemParenLeft
 	itemParenRight
+	itemBraceLeft
+	itemBraceRight
+	itemLessThanSign
+	itemGreaterThanSign
 )
+
+func (v itemType) String() string {
+	switch v {
+	case itemError:
+		return "err"
+	case itemEOF:
+		return "EOF"
+	case itemComment:
+		return "<comment>"
+	case itemSpaces:
+		return "<space>"
+	case itemString:
+		return "<string>"
+	case itemBareString:
+		return "<bare-string>"
+	case itemEqualSign:
+		return "="
+	case itemSemicolon:
+		return ";"
+	case itemAtSign:
+		return "@"
+	case itemColon:
+		return ":"
+	case itemComma:
+		return ","
+	case itemIdentifier:
+		return "<ident>"
+	case itemParenLeft:
+		return "("
+	case itemParenRight:
+		return ")"
+	case itemBraceLeft:
+		return "{"
+	case itemBraceRight:
+		return "}"
+	case itemLessThanSign:
+		return "<"
+	case itemGreaterThanSign:
+		return ">"
+	}
+	return "<unknown>"
+}
 
 type lexItem struct {
 	Type      itemType
@@ -42,12 +89,16 @@ type lexItem struct {
 	EndCol    int
 }
 
-func (i lexItem) unexpectedTokenErr() errors.ErrFileLineCol {
+func (v lexItem) String() string {
+	return fmt.Sprintf("%v:%v:%v", v.StartLine, v.StartCol, v.Type)
+}
+
+func (v lexItem) unexpectedTokenErr() errors.ErrFileLineCol {
 	return errors.FileLineCol(
-		i.Filepath,
-		i.EndLine,
-		i.EndCol-1,
-		fmt.Sprintf("unexpected token `%v`", i.Value),
+		v.Filepath,
+		v.StartLine,
+		v.StartCol,
+		fmt.Sprintf("unexpected token `%v`", v.Type),
 	)
 }
 
@@ -173,11 +224,24 @@ func isSpace(r rune) bool {
 }
 
 func isIdentifierStart(r rune) bool {
-	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r == '_'
+	return r >= 'a' && r <= 'z' ||
+		r >= 'A' && r <= 'Z' ||
+		r == '_'
 }
 
 func isIdentifier(r rune) bool {
-	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r == '_' || r >= '0' && r <= '9'
+	return r >= 'a' && r <= 'z' ||
+		r >= 'A' && r <= 'Z' ||
+		r >= '0' && r <= '9' ||
+		r == '_'
+}
+
+func isASCIIPlistBareString(r rune) bool {
+	// From the behavior of PLUTIL(1)
+	return r >= 'a' && r <= 'z' ||
+		r >= 'A' && r <= 'Z' ||
+		r >= '0' && r <= '9' ||
+		r == '$' || r == '-' || r == '_' || r == '.' || r == ':' || r == '/'
 }
 
 func lexComment(state stateFn) stateFn {
@@ -239,6 +303,21 @@ func lexString(state stateFn) stateFn {
 	}
 }
 
+func lexBareString(state stateFn) stateFn {
+	return func(l *lexer) stateFn {
+		for {
+			r := l.next()
+			if !isASCIIPlistBareString(r) {
+				if r != eof {
+					l.backup()
+				}
+				l.emit(itemBareString)
+				return state
+			}
+		}
+	}
+}
+
 func lexEntry(l *lexer) stateFn {
 	for {
 		if strings.HasPrefix(l.input[l.pos:], "/*") {
@@ -259,6 +338,49 @@ func lexEntry(l *lexer) stateFn {
 			if isSpace(r) {
 				l.backup()
 				return lexSpaces(lexEntry)
+			}
+			return l.unexpectedToken(r)
+		}
+	}
+}
+
+func lexASCIIPlist(l *lexer) stateFn {
+	for {
+		if strings.HasPrefix(l.input[l.pos:], "/*") {
+			return lexComment(lexASCIIPlist)
+		}
+		r := l.next()
+		switch r {
+		case eof:
+			return l.eof()
+		case '"':
+			l.backup()
+			return lexString(lexASCIIPlist)
+		case ';':
+			l.emit(itemSemicolon)
+		case '=':
+			l.emit(itemEqualSign)
+		case '{':
+			l.emit(itemBraceLeft)
+		case '}':
+			l.emit(itemBraceRight)
+		case '(':
+			l.emit(itemParenLeft)
+		case ')':
+			l.emit(itemParenRight)
+		case ',':
+			l.emit(itemComma)
+		case '<':
+			l.emit(itemLessThanSign)
+		case '>':
+			l.emit(itemGreaterThanSign)
+		default:
+			if isSpace(r) {
+				l.backup()
+				return lexSpaces(lexASCIIPlist)
+			} else if isASCIIPlistBareString(r) {
+				l.backup()
+				return lexBareString(lexASCIIPlist)
 			}
 			return l.unexpectedToken(r)
 		}
