@@ -1,4 +1,4 @@
-package main
+package linecol
 
 import (
 	"unicode/utf8"

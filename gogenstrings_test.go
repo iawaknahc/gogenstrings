@@ -3,6 +3,8 @@ package main
 import (
 	"reflect"
 	"testing"
+
+	"github.com/iawaknahc/gogenstrings/xmlplist"
 )
 
 func TestFoo(t *testing.T) {
@@ -19,15 +21,15 @@ func TestFoo(t *testing.T) {
 }
 
 func TestXmlPlistValueToInfoPlist(t *testing.T) {
-	input := XMLPlistValue{
+	input := xmlplist.Value{
 		Value: map[string]interface{}{
-			"CFBundleDevelopmentRegion": XMLPlistValue{
+			"CFBundleDevelopmentRegion": xmlplist.Value{
 				Value: "$(DEVELOPMENT_LANGUAGE)",
 			},
-			"CFBundleDisplayName": XMLPlistValue{
+			"CFBundleDisplayName": xmlplist.Value{
 				Value: "MyApp",
 			},
-			"NFCReaderUsageDescription": XMLPlistValue{
+			"NFCReaderUsageDescription": xmlplist.Value{
 				Value: "Use NFC",
 			},
 		},

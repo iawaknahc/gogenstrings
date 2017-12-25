@@ -1,4 +1,4 @@
-package main
+package xmlplist
 
 import (
 	"bytes"
@@ -9,10 +9,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/iawaknahc/gogenstrings/errors"
+	"github.com/iawaknahc/gogenstrings/linecol"
 )
 
-// XMLPlistValue represents a value in plist
-type XMLPlistValue struct {
+// Value represents a value in plist
+type Value struct {
 	// Value stores the actual value.
 	// The mapping is as follows:
 	// <string>  -> string
@@ -31,7 +34,7 @@ type XMLPlistValue struct {
 	Col int
 }
 
-func (v XMLPlistValue) String() string {
+func (v Value) String() string {
 	switch x := v.Value.(type) {
 	case string:
 		return "<string>"
@@ -57,7 +60,7 @@ func (v XMLPlistValue) String() string {
 }
 
 // Flatten turns the receiver to Go value.
-func (v XMLPlistValue) Flatten() interface{} {
+func (v Value) Flatten() interface{} {
 	switch x := v.Value.(type) {
 	case string:
 		return x
@@ -74,21 +77,21 @@ func (v XMLPlistValue) Flatten() interface{} {
 	case []interface{}:
 		out := make([]interface{}, len(x))
 		for i, value := range x {
-			out[i] = value.(XMLPlistValue).Flatten()
+			out[i] = value.(Value).Flatten()
 		}
 		return out
 	case map[string]interface{}:
 		out := make(map[string]interface{}, len(x))
 		for key, value := range x {
-			out[key] = value.(XMLPlistValue).Flatten()
+			out[key] = value.(Value).Flatten()
 		}
 		return out
 	}
 	panic(fmt.Errorf("unreachable"))
 }
 
-func makeXMLPlistValue(value interface{}, line, col int) XMLPlistValue {
-	return XMLPlistValue{
+func makeXMLPlistValue(value interface{}, line, col int) Value {
+	return Value{
 		Value: value,
 		Line:  line,
 		Col:   col,
@@ -103,7 +106,7 @@ type xmlPlistParser struct {
 	decoder   *xml.Decoder
 	offset    int
 	filepath  string
-	lineColer LineColer
+	lineColer linecol.LineColer
 }
 
 func (p *xmlPlistParser) nextToken() xml.Token {
@@ -115,7 +118,7 @@ func (p *xmlPlistParser) nextToken() xml.Token {
 		}
 		if syntaxErr, ok := err.(*xml.SyntaxError); ok {
 			line, col := p.lineColer.LineCol(p.offset)
-			panic(makeErrFileLineCol(
+			panic(errors.FileLineCol(
 				p.filepath,
 				line,
 				col,
@@ -166,7 +169,7 @@ func (p *xmlPlistParser) unexpected(token, expected xml.Token) {
 		tokenToString(token),
 		tokenToString(expected),
 	)
-	panic(makeErrFileLineCol(
+	panic(errors.FileLineCol(
 		p.filepath,
 		startLine,
 		startCol,
@@ -265,7 +268,7 @@ func (p *xmlPlistParser) parseReal() float64 {
 	line, col := p.lineColer.LineCol(p.offset)
 	f, err := strconv.ParseFloat(charData, 64)
 	if err != nil {
-		panic(makeErrFileLineCol(
+		panic(errors.FileLineCol(
 			p.filepath,
 			line,
 			col,
@@ -281,7 +284,7 @@ func (p *xmlPlistParser) parseInteger() int64 {
 	line, col := p.lineColer.LineCol(p.offset)
 	i, err := strconv.ParseInt(charData, 10, 64)
 	if err != nil {
-		panic(makeErrFileLineCol(
+		panic(errors.FileLineCol(
 			p.filepath,
 			line,
 			col,
@@ -307,7 +310,7 @@ func (p *xmlPlistParser) parseDate() time.Time {
 	line, col := p.lineColer.LineCol(p.offset)
 	d, err := time.ParseInLocation(time.RFC3339, charData, time.UTC)
 	if err != nil {
-		panic(makeErrFileLineCol(
+		panic(errors.FileLineCol(
 			p.filepath,
 			line,
 			col,
@@ -329,7 +332,7 @@ func (p *xmlPlistParser) parseData(line, col int) []byte {
 				dst := make([]byte, base64.StdEncoding.DecodedLen(len(src)))
 				_, err := base64.StdEncoding.Decode(dst, src)
 				if err != nil {
-					panic(makeErrFileLineCol(
+					panic(errors.FileLineCol(
 						p.filepath,
 						line,
 						col,
@@ -395,7 +398,7 @@ func (p *xmlPlistParser) parseDict() map[string]interface{} {
 	}
 }
 
-func (p *xmlPlistParser) parseValue(startElement xml.StartElement) XMLPlistValue {
+func (p *xmlPlistParser) parseValue(startElement xml.StartElement) Value {
 	line, col := p.lineColer.LineCol(p.offset)
 	switch startElement.Name.Local {
 	case "string":
@@ -428,10 +431,10 @@ func (p *xmlPlistParser) parseValue(startElement xml.StartElement) XMLPlistValue
 	default:
 		p.unexpected(startElement, anyPlistValue)
 	}
-	return XMLPlistValue{}
+	return Value{}
 }
 
-func (p *xmlPlistParser) parsePlist() XMLPlistValue {
+func (p *xmlPlistParser) parsePlist() Value {
 	_ = p.expectStartElement(true, makeStartElement("plist"))
 	startElement := p.expectStartElement(true, anyPlistValue)
 	out := p.parseValue(startElement)
@@ -446,7 +449,7 @@ func (p *xmlPlistParser) expectEOF() {
 	}
 }
 
-func (p *xmlPlistParser) parse() XMLPlistValue {
+func (p *xmlPlistParser) parse() Value {
 	p.expectXMLHeader()
 	p.expectDocType()
 	out := p.parsePlist()
@@ -454,13 +457,14 @@ func (p *xmlPlistParser) parse() XMLPlistValue {
 	return out
 }
 
-func parseXMLPlist(src, filepath string) (out XMLPlistValue, err error) {
+// ParseXMLPlist parses XML plist.
+func ParseXMLPlist(src, filepath string) (out Value, err error) {
 	reader := strings.NewReader(src)
 	decoder := xml.NewDecoder(reader)
 	p := xmlPlistParser{
 		decoder:   decoder,
 		filepath:  filepath,
-		lineColer: NewLineColer(src),
+		lineColer: linecol.NewLineColer(src),
 	}
 	defer p.recover(&err)
 	out = p.parse()

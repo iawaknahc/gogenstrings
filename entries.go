@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+
+	"github.com/iawaknahc/gogenstrings/errors"
 )
 
 type entries []entry
@@ -30,7 +32,7 @@ func (p entries) toEntryMap() (entryMap, error) {
 	em := entryMap{}
 	for _, e := range p {
 		if _, ok := em[e.key]; ok {
-			return nil, makeErrFileLineCol(
+			return nil, errors.FileLineCol(
 				e.filepath,
 				e.startLine,
 				e.startCol,

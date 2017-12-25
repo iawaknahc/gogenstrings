@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/iawaknahc/gogenstrings/errors"
+	"github.com/iawaknahc/gogenstrings/linecol"
 )
 
 const eof = -1
@@ -39,8 +42,8 @@ type lexItem struct {
 	EndCol    int
 }
 
-func (i lexItem) unexpectedTokenErr() errFileLineCol {
-	return makeErrFileLineCol(
+func (i lexItem) unexpectedTokenErr() errors.ErrFileLineCol {
+	return errors.FileLineCol(
 		i.Filepath,
 		i.EndLine,
 		i.EndCol-1,
@@ -57,7 +60,7 @@ type lexer struct {
 	start     int
 	pos       int
 	width     int
-	lineColer LineColer
+	lineColer linecol.LineColer
 	items     chan lexItem
 }
 
@@ -65,7 +68,7 @@ func newLexer(input, filepath string, state stateFn) lexer {
 	l := lexer{
 		state:     state,
 		filepath:  filepath,
-		lineColer: NewLineColer(input),
+		lineColer: linecol.NewLineColer(input),
 		input:     input,
 		items:     make(chan lexItem, 2),
 	}
@@ -132,9 +135,9 @@ func (l *lexer) unexpectedToken(r rune) stateFn {
 	endLine, endCol := l.lineCol(l.pos)
 	var err error
 	if r == eof {
-		err = makeErrFileLineCol(l.filepath, endLine, endCol-1, "unexpected EOF")
+		err = errors.FileLineCol(l.filepath, endLine, endCol-1, "unexpected EOF")
 	} else {
-		err = makeErrFileLineCol(
+		err = errors.FileLineCol(
 			l.filepath,
 			endLine,
 			endCol-1,

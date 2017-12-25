@@ -3,6 +3,8 @@ package main
 import (
 	"io/ioutil"
 	"unicode/utf8"
+
+	"github.com/iawaknahc/gogenstrings/errors"
 )
 
 func readFile(filename string) (string, error) {
@@ -11,7 +13,7 @@ func readFile(filename string) (string, error) {
 		return "", err
 	}
 	if !utf8.Valid(bytes) {
-		return "", makeErrFile(filename, "file is not UTF-8 encoded")
+		return "", errors.File(filename, "file is not UTF-8 encoded")
 	}
 	return string(bytes), nil
 }

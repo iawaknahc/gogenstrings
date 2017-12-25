@@ -7,13 +7,16 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/iawaknahc/gogenstrings/errors"
+	"github.com/iawaknahc/gogenstrings/xmlplist"
 )
 
 type infoPlist map[string]string
 
-func xmlPlistValueToInfoPlist(v XMLPlistValue, filepath string) (infoPlist, error) {
+func xmlPlistValueToInfoPlist(v xmlplist.Value, filepath string) (infoPlist, error) {
 	if _, ok := v.Value.(map[string]interface{}); !ok {
-		return nil, makeErrFileLineCol(
+		return nil, errors.FileLineCol(
 			filepath,
 			v.Line,
 			v.Col,
@@ -140,7 +143,7 @@ func (p *genstringsContext) findLprojs() error {
 			return nil
 		}
 	}
-	return makeErrFile(path.Join(p.rootPath, targetBasename), "directory not found")
+	return errors.File(path.Join(p.rootPath, targetBasename), "directory not found")
 }
 
 func (p *genstringsContext) findSourceFiles() error {
@@ -169,11 +172,11 @@ func (p *genstringsContext) readInfoPlist() error {
 	content, err := readFile(p.infoPlistPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return makeErrFile(p.infoPlistPath, "file not found")
+			return errors.File(p.infoPlistPath, "file not found")
 		}
 		return err
 	}
-	xmlPlistValue, err := parseXMLPlist(content, p.infoPlistPath)
+	xmlPlistValue, err := xmlplist.ParseXMLPlist(content, p.infoPlistPath)
 	if err != nil {
 		return err
 	}

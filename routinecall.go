@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+
+	"github.com/iawaknahc/gogenstrings/errors"
 )
 
 type routineCall struct {
@@ -19,7 +21,7 @@ func (p routineCallSlice) toMap() (map[string]routineCall, error) {
 	for _, call := range p {
 		// Validate every call has non-empty key
 		if call.key == "" {
-			return nil, makeErrFileLineCol(
+			return nil, errors.FileLineCol(
 				call.filepath,
 				call.startLine,
 				call.startCol,
@@ -31,7 +33,7 @@ func (p routineCallSlice) toMap() (map[string]routineCall, error) {
 		existingCall, ok := out[call.key]
 		if ok {
 			if call.comment != existingCall.comment {
-				return nil, makeErrFileLineCol(
+				return nil, errors.FileLineCol(
 					call.filepath,
 					call.startLine,
 					call.startCol,

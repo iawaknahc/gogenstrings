@@ -1,4 +1,4 @@
-package main
+package xmlplist
 
 import (
 	"reflect"
@@ -26,42 +26,42 @@ func TestParseXMLPlist(t *testing.T) {
 	</dict>
 </plist>
 `
-	actual, err := parseXMLPlist(input, "")
-	expected := XMLPlistValue{
+	actual, err := ParseXMLPlist(input, "")
+	expected := Value{
 		Value: map[string]interface{}{
-			"key1": XMLPlistValue{
+			"key1": Value{
 				Value: []interface{}{
-					XMLPlistValue{
+					Value{
 						Value: int64(-1),
 						Line:  7,
 						Col:   4,
 					},
-					XMLPlistValue{
+					Value{
 						Value: 1.5,
 						Line:  8,
 						Col:   4,
 					},
-					XMLPlistValue{
+					Value{
 						Value: "s",
 						Line:  9,
 						Col:   4,
 					},
-					XMLPlistValue{
+					Value{
 						Value: time.Date(2017, 12, 25, 0, 0, 0, 0, time.UTC),
 						Line:  10,
 						Col:   4,
 					},
-					XMLPlistValue{
+					Value{
 						Value: true,
 						Line:  11,
 						Col:   4,
 					},
-					XMLPlistValue{
+					Value{
 						Value: false,
 						Line:  12,
 						Col:   4,
 					},
-					XMLPlistValue{
+					Value{
 						Value: []byte{105, 191, 191},
 						Line:  13,
 						Col:   4,
@@ -80,41 +80,41 @@ func TestParseXMLPlist(t *testing.T) {
 }
 
 func TestXMLPlistValueFlatten(t *testing.T) {
-	input := XMLPlistValue{
+	input := Value{
 		Value: map[string]interface{}{
-			"key1": XMLPlistValue{
+			"key1": Value{
 				Value: []interface{}{
-					XMLPlistValue{
+					Value{
 						Value: int64(-1),
 						Line:  7,
 						Col:   4,
 					},
-					XMLPlistValue{
+					Value{
 						Value: 1.5,
 						Line:  8,
 						Col:   4,
 					},
-					XMLPlistValue{
+					Value{
 						Value: "s",
 						Line:  9,
 						Col:   4,
 					},
-					XMLPlistValue{
+					Value{
 						Value: time.Date(2017, 12, 25, 0, 0, 0, 0, time.UTC),
 						Line:  10,
 						Col:   4,
 					},
-					XMLPlistValue{
+					Value{
 						Value: true,
 						Line:  11,
 						Col:   4,
 					},
-					XMLPlistValue{
+					Value{
 						Value: false,
 						Line:  12,
 						Col:   4,
 					},
-					XMLPlistValue{
+					Value{
 						Value: []byte{105, 191, 191},
 						Line:  13,
 						Col:   4,
