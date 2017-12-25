@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -61,7 +62,7 @@ func (p *parser) nextToken() (xml.Token, error) {
 	return token, err
 }
 
-func (p *parser) nextNonSpace() *xml.Token {
+func (p *parser) nextNonSpace() xml.Token {
 	for {
 		token, err := p.nextToken()
 		if err != nil {
@@ -70,8 +71,12 @@ func (p *parser) nextNonSpace() *xml.Token {
 			}
 			panic(err)
 		}
-		if _, ok := token.(xml.CharData); !ok {
-			return &token
+		charData, ok := token.(xml.CharData)
+		if !ok {
+			return token
+		}
+		if len(bytes.TrimSpace([]byte(charData))) > 0 {
+			return token
 		}
 	}
 }
@@ -110,11 +115,10 @@ func (p *parser) expectXMLHeader() {
 	expected := xml.ProcInst{
 		Target: "xml",
 	}
-	tokenp := p.nextNonSpace()
-	if tokenp == nil {
+	token := p.nextNonSpace()
+	if token == nil {
 		p.unexpectedEOF(expected)
 	}
-	token := *tokenp
 	procInst, ok := token.(xml.ProcInst)
 	if !ok ||
 		procInst.Target != "xml" ||
@@ -125,11 +129,10 @@ func (p *parser) expectXMLHeader() {
 
 func (p *parser) expectDocType() {
 	expected := xml.Directive([]byte("DOCTYPE"))
-	tokenp := p.nextNonSpace()
-	if tokenp == nil {
+	token := p.nextNonSpace()
+	if token == nil {
 		p.unexpectedEOF(expected)
 	}
-	token := *tokenp
 	directive, ok := token.(xml.Directive)
 	if !ok ||
 		string(directive) != `DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"` {
@@ -146,11 +149,10 @@ func (p *parser) assertStartElement(startElement xml.StartElement, localName str
 
 func (p *parser) expectStartElement(localName string) {
 	expected := makeStartElement(localName)
-	tokenp := p.nextNonSpace()
-	if tokenp == nil {
+	token := p.nextNonSpace()
+	if token == nil {
 		p.unexpectedEOF(expected)
 	}
-	token := *tokenp
 	startElement, ok := token.(xml.StartElement)
 	if !ok {
 		p.unexpected(token, expected)
@@ -167,11 +169,10 @@ func (p *parser) assertEndElement(endElement xml.EndElement, localName string) {
 
 func (p *parser) expectEndElement(localName string) {
 	expected := makeEndElement(localName)
-	tokenp := p.nextNonSpace()
-	if tokenp == nil {
+	token := p.nextNonSpace()
+	if token == nil {
 		p.unexpectedEOF(expected)
 	}
-	token := *tokenp
 	endElement, ok := token.(xml.EndElement)
 	if !ok {
 		p.unexpected(token, expected)
@@ -194,11 +195,10 @@ func (p *parser) expectCharData() string {
 func (p *parser) parseDictValue() *string {
 	expected := makeStartElement("string")
 
-	tokenp := p.nextNonSpace()
-	if tokenp == nil {
+	token := p.nextNonSpace()
+	if token == nil {
 		p.unexpectedEOF(expected)
 	}
-	token := *tokenp
 	startElement, ok := token.(xml.StartElement)
 	if !ok {
 		p.unexpected(token, expected)
@@ -236,11 +236,10 @@ func (p *parser) parseDict() infoPlist {
 Loop:
 	for {
 		expected := "<key> or </dict>"
-		tokenp := p.nextNonSpace()
-		if tokenp == nil {
+		token := p.nextNonSpace()
+		if token == nil {
 			p.unexpectedEOF(expected)
 		}
-		token := *tokenp
 		switch v := token.(type) {
 		case xml.StartElement:
 			p.assertStartElement(v, "key")
@@ -268,9 +267,9 @@ func (p *parser) parsePlist() infoPlist {
 }
 
 func (p *parser) expectEOF() {
-	tokenp := p.nextNonSpace()
-	if tokenp != nil {
-		p.unexpected(*tokenp, nil)
+	token := p.nextNonSpace()
+	if token != nil {
+		p.unexpected(token, nil)
 	}
 }
 
