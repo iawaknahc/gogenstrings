@@ -49,20 +49,20 @@ func (p infoPlist) toEntryMap() entryMap {
 	return out
 }
 
-type parser struct {
+type xmlPlistParser struct {
 	decoder   *xml.Decoder
 	offset    int
 	filepath  string
 	lineColer LineColer
 }
 
-func (p *parser) nextToken() (xml.Token, error) {
+func (p *xmlPlistParser) nextToken() (xml.Token, error) {
 	p.offset = int(p.decoder.InputOffset())
 	token, err := p.decoder.Token()
 	return token, err
 }
 
-func (p *parser) nextNonSpace() xml.Token {
+func (p *xmlPlistParser) nextNonSpace() xml.Token {
 	for {
 		token, err := p.nextToken()
 		if err != nil {
@@ -81,7 +81,7 @@ func (p *parser) nextNonSpace() xml.Token {
 	}
 }
 
-func (p *parser) recover(errp *error) {
+func (p *xmlPlistParser) recover(errp *error) {
 	if r := recover(); r != nil {
 		err, ok := r.(error)
 		if !ok {
@@ -91,7 +91,7 @@ func (p *parser) recover(errp *error) {
 	}
 }
 
-func (p *parser) unexpected(token, expected xml.Token) {
+func (p *xmlPlistParser) unexpected(token, expected xml.Token) {
 	startLine, startCol := p.lineColer.LineCol(p.offset)
 	message := fmt.Sprintf(
 		"unexpected %v; expected %v",
@@ -107,11 +107,11 @@ func (p *parser) unexpected(token, expected xml.Token) {
 	panic(err)
 }
 
-func (p *parser) unexpectedEOF(expected xml.Token) {
+func (p *xmlPlistParser) unexpectedEOF(expected xml.Token) {
 	p.unexpected(nil, expected)
 }
 
-func (p *parser) expectXMLHeader() {
+func (p *xmlPlistParser) expectXMLHeader() {
 	expected := xml.ProcInst{
 		Target: "xml",
 	}
@@ -127,7 +127,7 @@ func (p *parser) expectXMLHeader() {
 	}
 }
 
-func (p *parser) expectDocType() {
+func (p *xmlPlistParser) expectDocType() {
 	expected := xml.Directive([]byte("DOCTYPE"))
 	token := p.nextNonSpace()
 	if token == nil {
@@ -140,14 +140,14 @@ func (p *parser) expectDocType() {
 	}
 }
 
-func (p *parser) assertStartElement(startElement xml.StartElement, localName string) {
+func (p *xmlPlistParser) assertStartElement(startElement xml.StartElement, localName string) {
 	expected := makeStartElement(localName)
 	if startElement.Name.Local != localName {
 		p.unexpected(startElement, expected)
 	}
 }
 
-func (p *parser) expectStartElement(localName string) {
+func (p *xmlPlistParser) expectStartElement(localName string) {
 	expected := makeStartElement(localName)
 	token := p.nextNonSpace()
 	if token == nil {
@@ -160,14 +160,14 @@ func (p *parser) expectStartElement(localName string) {
 	p.assertStartElement(startElement, localName)
 }
 
-func (p *parser) assertEndElement(endElement xml.EndElement, localName string) {
+func (p *xmlPlistParser) assertEndElement(endElement xml.EndElement, localName string) {
 	expected := makeEndElement(localName)
 	if endElement.Name.Local != localName {
 		p.unexpected(endElement, expected)
 	}
 }
 
-func (p *parser) expectEndElement(localName string) {
+func (p *xmlPlistParser) expectEndElement(localName string) {
 	expected := makeEndElement(localName)
 	token := p.nextNonSpace()
 	if token == nil {
@@ -180,7 +180,7 @@ func (p *parser) expectEndElement(localName string) {
 	p.assertEndElement(endElement, localName)
 }
 
-func (p *parser) expectCharData() string {
+func (p *xmlPlistParser) expectCharData() string {
 	token, err := p.nextToken()
 	if err != nil {
 		panic(err)
@@ -192,7 +192,7 @@ func (p *parser) expectCharData() string {
 	return string(charData.Copy())
 }
 
-func (p *parser) parseDictValue() *string {
+func (p *xmlPlistParser) parseDictValue() *string {
 	expected := makeStartElement("string")
 
 	token := p.nextNonSpace()
@@ -230,7 +230,7 @@ func (p *parser) parseDictValue() *string {
 	return nil
 }
 
-func (p *parser) parseDict() infoPlist {
+func (p *xmlPlistParser) parseDict() infoPlist {
 	p.expectStartElement("dict")
 	out := infoPlist{}
 Loop:
@@ -259,21 +259,21 @@ Loop:
 	return out
 }
 
-func (p *parser) parsePlist() infoPlist {
+func (p *xmlPlistParser) parsePlist() infoPlist {
 	p.expectStartElement("plist")
 	out := p.parseDict()
 	p.expectEndElement("plist")
 	return out
 }
 
-func (p *parser) expectEOF() {
+func (p *xmlPlistParser) expectEOF() {
 	token := p.nextNonSpace()
 	if token != nil {
 		p.unexpected(token, nil)
 	}
 }
 
-func (p *parser) parse() infoPlist {
+func (p *xmlPlistParser) parse() infoPlist {
 	p.expectXMLHeader()
 	p.expectDocType()
 	out := p.parsePlist()
@@ -284,7 +284,7 @@ func (p *parser) parse() infoPlist {
 func parseInfoPlist(src, filepath string) (out infoPlist, err error) {
 	reader := strings.NewReader(src)
 	decoder := xml.NewDecoder(reader)
-	p := parser{
+	p := xmlPlistParser{
 		decoder:   decoder,
 		filepath:  filepath,
 		lineColer: NewLineColer(src),
