@@ -1,11 +1,65 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"strings"
 )
+
+type infoPlist map[string]string
+
+func xmlPlistValueToInfoPlist(v XMLPlistValue, filepath string) (infoPlist, error) {
+	if _, ok := v.Value.(map[string]interface{}); !ok {
+		return nil, makeErrFileLineCol(
+			filepath,
+			v.Line,
+			v.Col,
+			fmt.Sprintf("unexpected %v; expected <dict>", v),
+		)
+	}
+	dict := v.Flatten().(map[string]interface{})
+	out := infoPlist{}
+	for key, value := range dict {
+		if s, ok := value.(string); ok {
+			if isKeyValueLocalizable(key, s) {
+				out[key] = s
+			}
+		}
+	}
+	return out, nil
+}
+
+func isLocalizableKey(key string) bool {
+	if strings.HasSuffix(key, "UsageDescription") {
+		return true
+	}
+	return key == "CFBundleDisplayName"
+}
+
+func isValueVariable(value string) bool {
+	if strings.HasPrefix(value, "$(") && strings.HasSuffix(value, ")") {
+		return true
+	}
+	return false
+}
+
+func isKeyValueLocalizable(key, value string) bool {
+	return isLocalizableKey(key) && !isValueVariable(value)
+}
+
+func (p infoPlist) toEntryMap() entryMap {
+	out := entryMap{}
+	for key, value := range p {
+		out[key] = entry{
+			key:   key,
+			value: value,
+		}
+	}
+	return out
+}
 
 type genstringsContext struct {
 	// Configuration
@@ -119,7 +173,11 @@ func (p *genstringsContext) readInfoPlist() error {
 		}
 		return err
 	}
-	out, err := parseInfoPlist(content, p.infoPlistPath)
+	xmlPlistValue, err := parseXMLPlist(content, p.infoPlistPath)
+	if err != nil {
+		return err
+	}
+	out, err := xmlPlistValueToInfoPlist(xmlPlistValue, p.infoPlistPath)
 	if err != nil {
 		return err
 	}
@@ -240,7 +298,7 @@ func (p *genstringsContext) process() {
 	}
 
 	// Merge development language first
-	newInfoPlistEntryMap := p.infoPlist.localizable().toEntryMap()
+	newInfoPlistEntryMap := p.infoPlist.toEntryMap()
 	devInfoPlist := p.inInfoPlistEntryMap[devLproj].mergeDev(newInfoPlistEntryMap)
 	p.outInfoPlistEntryMap[devLproj] = devInfoPlist
 
