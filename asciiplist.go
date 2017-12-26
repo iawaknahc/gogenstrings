@@ -8,8 +8,9 @@ import (
 	"github.com/iawaknahc/gogenstrings/errors"
 )
 
-// ASCIIPlistValue represents a value in plist.
-type ASCIIPlistValue struct {
+// ASCIIPlistNode represents a node in plist.
+// The zero value is not safe to use.
+type ASCIIPlistNode struct {
 	// Value stores the actual value.
 	// The mapping is as follows:
 	// "string" or string             -> string
@@ -23,7 +24,7 @@ type ASCIIPlistValue struct {
 	Col int
 }
 
-func (v ASCIIPlistValue) String() string {
+func (v ASCIIPlistNode) String() string {
 	switch x := v.Value.(type) {
 	case string:
 		return fmt.Sprintf("%v:%v %q", v.Line, v.Col, x)
@@ -38,7 +39,7 @@ func (v ASCIIPlistValue) String() string {
 }
 
 // Flatten turns the receiver to Go value.
-func (v ASCIIPlistValue) Flatten() interface{} {
+func (v ASCIIPlistNode) Flatten() interface{} {
 	switch x := v.Value.(type) {
 	case string:
 		return x
@@ -47,13 +48,13 @@ func (v ASCIIPlistValue) Flatten() interface{} {
 	case []interface{}:
 		out := make([]interface{}, len(x))
 		for i, value := range x {
-			out[i] = value.(ASCIIPlistValue).Flatten()
+			out[i] = value.(ASCIIPlistNode).Flatten()
 		}
 		return out
 	case map[string]interface{}:
 		out := make(map[string]interface{}, len(x))
 		for key, value := range x {
-			out[key] = value.(ASCIIPlistValue).Flatten()
+			out[key] = value.(ASCIIPlistNode).Flatten()
 		}
 		return out
 	}
@@ -120,7 +121,7 @@ func (p *asciiPlistParser) unexpected(item lexItem) {
 	}
 }
 
-func (p *asciiPlistParser) parseValue() (out ASCIIPlistValue) {
+func (p *asciiPlistParser) parseValue() (out ASCIIPlistNode) {
 	token := p.nextNonSpace()
 	switch token.Type {
 	case itemString, itemBareString:
@@ -138,7 +139,7 @@ func (p *asciiPlistParser) parseValue() (out ASCIIPlistValue) {
 	return
 }
 
-func (p *asciiPlistParser) parseString() (out ASCIIPlistValue) {
+func (p *asciiPlistParser) parseString() (out ASCIIPlistNode) {
 	token := p.nextNonSpace()
 	switch token.Type {
 	case itemString, itemBareString:
@@ -157,7 +158,7 @@ func (p *asciiPlistParser) parseString() (out ASCIIPlistValue) {
 	return
 }
 
-func (p *asciiPlistParser) parseDict(startToken lexItem, terminatingType itemType) (out ASCIIPlistValue) {
+func (p *asciiPlistParser) parseDict(startToken lexItem, terminatingType itemType) (out ASCIIPlistNode) {
 	outValue := make(map[string]interface{})
 	out.Value = outValue
 	out.Line = startToken.StartLine
@@ -185,7 +186,7 @@ func (p *asciiPlistParser) parseDict(startToken lexItem, terminatingType itemTyp
 	}
 }
 
-func (p *asciiPlistParser) parseArray(startToken lexItem) (out ASCIIPlistValue) {
+func (p *asciiPlistParser) parseArray(startToken lexItem) (out ASCIIPlistNode) {
 	outValue := []interface{}{}
 	out.Line = startToken.StartLine
 	out.Col = startToken.StartCol
@@ -222,7 +223,7 @@ func isASCIIPlistHex(s string) bool {
 	return length%2 == 0
 }
 
-func (p *asciiPlistParser) parseData(startToken lexItem) (out ASCIIPlistValue) {
+func (p *asciiPlistParser) parseData(startToken lexItem) (out ASCIIPlistNode) {
 	buf := bytes.Buffer{}
 	out.Line = startToken.StartLine
 	out.Col = startToken.StartCol
@@ -249,7 +250,7 @@ func (p *asciiPlistParser) parseData(startToken lexItem) (out ASCIIPlistValue) {
 	}
 }
 
-func (p *asciiPlistParser) parse() (out ASCIIPlistValue, err error) {
+func (p *asciiPlistParser) parse() (out ASCIIPlistNode, err error) {
 	defer p.recover(&err)
 	token := p.nextNonSpace()
 	if token.Type == itemEOF {
@@ -277,7 +278,7 @@ func (p *asciiPlistParser) parse() (out ASCIIPlistValue, err error) {
 	return
 }
 
-func parseASCIIPlist(src, filepath string) (ASCIIPlistValue, error) {
+func parseASCIIPlist(src, filepath string) (ASCIIPlistNode, error) {
 	l := newLexer(src, filepath, lexASCIIPlist)
 	p := &asciiPlistParser{
 		filepath: filepath,

@@ -5,35 +5,35 @@ import (
 	"testing"
 )
 
-func TestASCIIPlistValueFlatten(t *testing.T) {
+func TestASCIIPlistNodeFlatten(t *testing.T) {
 	cases := []struct {
-		input    ASCIIPlistValue
+		input    ASCIIPlistNode
 		expected interface{}
 	}{
 		{
-			ASCIIPlistValue{
+			ASCIIPlistNode{
 				Value: "s",
 			},
 			"s",
 		},
 		{
-			ASCIIPlistValue{
+			ASCIIPlistNode{
 				Value: []byte{1},
 			},
 			[]byte{1},
 		},
 		{
-			ASCIIPlistValue{
+			ASCIIPlistNode{
 				Value: []interface{}{
-					ASCIIPlistValue{
+					ASCIIPlistNode{
 						Value: "s",
 					},
-					ASCIIPlistValue{
+					ASCIIPlistNode{
 						Value: []byte{1},
 					},
-					ASCIIPlistValue{
+					ASCIIPlistNode{
 						Value: map[string]interface{}{
-							"key": ASCIIPlistValue{
+							"key": ASCIIPlistNode{
 								Value: []interface{}{},
 							},
 						},
