@@ -11,6 +11,7 @@ func TestLineColOffset(t *testing.T) {
 		line   int
 		col    int
 	}{
+		{"\na", 1, 2, 1},
 		{"abc\nabc\n", -1, 0, 0},
 		{"abc\nabc\n", 0, 1, 1},
 		{"abc\nabc\n", 1, 1, 2},
@@ -20,6 +21,7 @@ func TestLineColOffset(t *testing.T) {
 		{"abc\nabc\n", 5, 2, 2},
 		{"abc\nabc\n", 6, 2, 3},
 		{"abc\nabc\n", 7, 3, 0},
+		{"abc\nabc\n", 8, 0, 0},
 	}
 	for _, c := range cases {
 		lineColer := NewLineColer(c.src)

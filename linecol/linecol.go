@@ -44,6 +44,12 @@ func (p *LineColer) findLineIndex(offset int) int {
 	if offset < 0 || offset >= len(p.src) {
 		return -1
 	}
+
+	lastLineOffset := p.linePos[len(p.linePos)-1]
+	if offset >= lastLineOffset {
+		return len(p.linePos) - 1
+	}
+
 	low := 0
 	high := len(p.linePos)
 	for {
