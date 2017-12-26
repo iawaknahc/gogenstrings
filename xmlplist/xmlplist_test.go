@@ -6,79 +6,6 @@ import (
 	"time"
 )
 
-func TestParseXMLPlist(t *testing.T) {
-	input := `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-	<dict>
-		<key>key1</key>
-		<array>
-			<integer>-1</integer>
-			<real>1.5</real>
-			<string>s</string>
-			<date>2017-12-25T00:00:00Z</date>
-			<true/>
-			<false/>
-			<data>
-			ab+/
-			</data>
-		</array>
-	</dict>
-</plist>
-`
-	actual, err := ParseXMLPlist(input, "")
-	expected := Value{
-		Value: map[string]interface{}{
-			"key1": Value{
-				Value: []interface{}{
-					Value{
-						Value: int64(-1),
-						Line:  7,
-						Col:   4,
-					},
-					Value{
-						Value: 1.5,
-						Line:  8,
-						Col:   4,
-					},
-					Value{
-						Value: "s",
-						Line:  9,
-						Col:   4,
-					},
-					Value{
-						Value: time.Date(2017, 12, 25, 0, 0, 0, 0, time.UTC),
-						Line:  10,
-						Col:   4,
-					},
-					Value{
-						Value: true,
-						Line:  11,
-						Col:   4,
-					},
-					Value{
-						Value: false,
-						Line:  12,
-						Col:   4,
-					},
-					Value{
-						Value: []byte{105, 191, 191},
-						Line:  13,
-						Col:   4,
-					},
-				},
-				Line: 6,
-				Col:  3,
-			},
-		},
-		Line: 4,
-		Col:  2,
-	}
-	if err != nil || !reflect.DeepEqual(actual, expected) {
-		t.Fail()
-	}
-}
-
 func TestXMLPlistValueFlatten(t *testing.T) {
 	input := Value{
 		Value: map[string]interface{}{
@@ -86,46 +13,28 @@ func TestXMLPlistValueFlatten(t *testing.T) {
 				Value: []interface{}{
 					Value{
 						Value: int64(-1),
-						Line:  7,
-						Col:   4,
 					},
 					Value{
 						Value: 1.5,
-						Line:  8,
-						Col:   4,
 					},
 					Value{
 						Value: "s",
-						Line:  9,
-						Col:   4,
 					},
 					Value{
 						Value: time.Date(2017, 12, 25, 0, 0, 0, 0, time.UTC),
-						Line:  10,
-						Col:   4,
 					},
 					Value{
 						Value: true,
-						Line:  11,
-						Col:   4,
 					},
 					Value{
 						Value: false,
-						Line:  12,
-						Col:   4,
 					},
 					Value{
 						Value: []byte{105, 191, 191},
-						Line:  13,
-						Col:   4,
 					},
 				},
-				Line: 6,
-				Col:  3,
 			},
 		},
-		Line: 4,
-		Col:  2,
 	}
 	actual := input.Flatten()
 	expected := map[string]interface{}{
@@ -141,5 +50,36 @@ func TestXMLPlistValueFlatten(t *testing.T) {
 	}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Fail()
+	}
+}
+
+func TestParseXMLPlist(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected interface{}
+	}{
+		{"<string>1</string>", "1"},
+		{"<integer>-1</integer>", int64(-1)},
+		{"<real>1.5</real>", 1.5},
+		{"<date>2017-12-25T00:00:00Z</date>", time.Date(2017, 12, 25, 0, 0, 0, 0, time.UTC)},
+		{"<true/>", true},
+		{"<false/>", false},
+		{"<data>ab+/</data>", []byte{105, 191, 191}},
+		{"<array></array>", []interface{}{}},
+		{"<dict></dict>", map[string]interface{}{}},
+	}
+	for _, c := range cases {
+		prefix := `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0">`
+		suffix := "</plist>"
+		input := prefix + c.input + suffix
+		actual, err := ParseXMLPlist(input, "")
+		if err != nil {
+			t.Fail()
+		} else {
+			actualFlattened := actual.Flatten()
+			if !reflect.DeepEqual(actualFlattened, c.expected) {
+				t.Fail()
+			}
+		}
 	}
 }
