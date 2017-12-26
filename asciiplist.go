@@ -59,16 +59,16 @@ func (v ASCIIPlistNode) Flatten() interface{} {
 		return x
 	case []byte:
 		return x
-	case []interface{}:
+	case []ASCIIPlistNode:
 		out := make([]interface{}, len(x))
 		for i, value := range x {
-			out[i] = value.(ASCIIPlistNode).Flatten()
+			out[i] = value.Flatten()
 		}
 		return out
-	case map[string]interface{}:
+	case map[ASCIIPlistNode]ASCIIPlistNode:
 		out := make(map[string]interface{}, len(x))
 		for key, value := range x {
-			out[key] = value.(ASCIIPlistNode).Flatten()
+			out[key.Value.(string)] = value.Flatten()
 		}
 		return out
 	}
@@ -204,7 +204,7 @@ func (p *asciiPlistParser) parseString() (out ASCIIPlistNode) {
 }
 
 func (p *asciiPlistParser) parseDict(startToken annotatedItem, terminatingType itemType) (out ASCIIPlistNode) {
-	outValue := make(map[string]interface{})
+	outValue := make(map[ASCIIPlistNode]ASCIIPlistNode)
 	out.Value = outValue
 	out.Line = startToken.item.StartLine
 	out.Col = startToken.item.StartCol
@@ -222,21 +222,20 @@ func (p *asciiPlistParser) parseDict(startToken annotatedItem, terminatingType i
 		p.expect(itemEqualSign)
 		valueValue := p.parseValue()
 		p.expect(itemSemicolon)
-		key := keyValue.Value.(string)
-		if _, ok := outValue[key]; ok {
+		if _, ok := outValue[keyValue]; ok {
 			panic(errors.FileLineCol(
 				p.filepath,
 				keyValue.Line,
 				keyValue.Col,
-				fmt.Sprintf("duplicated key `%v`", key),
+				fmt.Sprintf("duplicated key `%v`", keyValue.Value.(string)),
 			))
 		}
-		outValue[key] = valueValue
+		outValue[keyValue] = valueValue
 	}
 }
 
 func (p *asciiPlistParser) parseArray(startToken annotatedItem) (out ASCIIPlistNode) {
-	outValue := []interface{}{}
+	outValue := []ASCIIPlistNode{}
 	out.Line = startToken.item.StartLine
 	out.Col = startToken.item.StartCol
 	out.CommentBefore = startToken.getComment()

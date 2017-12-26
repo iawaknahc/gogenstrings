@@ -24,7 +24,7 @@ func TestASCIIPlistNodeFlatten(t *testing.T) {
 		},
 		{
 			ASCIIPlistNode{
-				Value: []interface{}{
+				Value: []ASCIIPlistNode{
 					ASCIIPlistNode{
 						Value: "s",
 					},
@@ -32,9 +32,9 @@ func TestASCIIPlistNodeFlatten(t *testing.T) {
 						Value: []byte{1},
 					},
 					ASCIIPlistNode{
-						Value: map[string]interface{}{
-							"key": ASCIIPlistNode{
-								Value: []interface{}{},
+						Value: map[ASCIIPlistNode]ASCIIPlistNode{
+							ASCIIPlistNode{Value: "key"}: ASCIIPlistNode{
+								Value: []ASCIIPlistNode{},
 							},
 						},
 					},
