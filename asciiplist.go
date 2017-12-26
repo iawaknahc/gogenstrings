@@ -22,6 +22,10 @@ type ASCIIPlistNode struct {
 	Line int
 	// Col is the column number.
 	Col int
+	// CommentBefore is the comment before this node.
+	CommentBefore string
+	// CommentAfter is the comment after this node.
+	CommentAfter string
 }
 
 type annotatedItem struct {
@@ -30,18 +34,22 @@ type annotatedItem struct {
 	hasComment bool
 }
 
-func (v ASCIIPlistNode) String() string {
-	switch x := v.Value.(type) {
-	case string:
-		return fmt.Sprintf("%v:%v %q", v.Line, v.Col, x)
-	case []byte:
-		return fmt.Sprintf("%v:%v %v", v.Line, v.Col, x)
-	case []interface{}:
-		return fmt.Sprintf("%v:%v %v", v.Line, v.Col, x)
-	case map[string]interface{}:
-		return fmt.Sprintf("%v:%v %v", v.Line, v.Col, x)
+func (v annotatedItem) getComment() string {
+	if !v.hasComment {
+		return ""
 	}
-	panic(fmt.Errorf("unreachable"))
+	return getComment(v.comment.Value)
+}
+
+func (v annotatedItem) canHaveCommentBefore() bool {
+	if !v.hasComment {
+		return false
+	}
+	switch v.item.Type {
+	case itemString, itemBareString, itemBraceLeft, itemLessThanSign, itemParenLeft:
+		return true
+	}
+	return false
 }
 
 // Flatten turns the receiver to Go value.
@@ -112,11 +120,19 @@ Loop:
 			hasComment = true
 			comment = aitem.item
 		default:
-			aitem.comment = comment
-			aitem.hasComment = hasComment
+			if hasComment {
+				aitem.comment = comment
+				aitem.hasComment = hasComment
+			}
 			break Loop
 		}
 	}
+	return aitem
+}
+
+func (p *asciiPlistParser) peekNonSpace() annotatedItem {
+	aitem := p.nextNonSpace()
+	p.backup(aitem)
 	return aitem
 }
 
@@ -177,6 +193,10 @@ func (p *asciiPlistParser) parseString() (out ASCIIPlistNode) {
 		out.Value = value
 		out.Line = token.item.StartLine
 		out.Col = token.item.StartCol
+		out.CommentBefore = token.getComment()
+		if nextToken := p.peekNonSpace(); !nextToken.canHaveCommentBefore() {
+			out.CommentAfter = nextToken.getComment()
+		}
 	default:
 		p.unexpected(token)
 	}
@@ -188,9 +208,13 @@ func (p *asciiPlistParser) parseDict(startToken annotatedItem, terminatingType i
 	out.Value = outValue
 	out.Line = startToken.item.StartLine
 	out.Col = startToken.item.StartCol
+	out.CommentBefore = startToken.getComment()
 	for {
 		token := p.nextNonSpace()
 		if token.item.Type == terminatingType {
+			if nextToken := p.peekNonSpace(); !nextToken.canHaveCommentBefore() {
+				out.CommentAfter = nextToken.getComment()
+			}
 			return
 		}
 		p.backup(token)
@@ -215,11 +239,15 @@ func (p *asciiPlistParser) parseArray(startToken annotatedItem) (out ASCIIPlistN
 	outValue := []interface{}{}
 	out.Line = startToken.item.StartLine
 	out.Col = startToken.item.StartCol
+	out.CommentBefore = startToken.getComment()
 	first := true
 	for {
 		token := p.nextNonSpace()
 		if token.item.Type == itemParenRight {
 			out.Value = outValue
+			if nextToken := p.peekNonSpace(); !nextToken.canHaveCommentBefore() {
+				out.CommentAfter = nextToken.getComment()
+			}
 			return
 		}
 		p.backup(token)
@@ -252,6 +280,7 @@ func (p *asciiPlistParser) parseData(startToken annotatedItem) (out ASCIIPlistNo
 	buf := bytes.Buffer{}
 	out.Line = startToken.item.StartLine
 	out.Col = startToken.item.StartCol
+	out.CommentBefore = startToken.getComment()
 	for {
 		token := p.nextNonSpace()
 		switch token.item.Type {
@@ -263,6 +292,9 @@ func (p *asciiPlistParser) parseData(startToken annotatedItem) (out ASCIIPlistNo
 				panic("impossible")
 			}
 			out.Value = dst
+			if nextToken := p.peekNonSpace(); !nextToken.canHaveCommentBefore() {
+				out.CommentAfter = nextToken.getComment()
+			}
 			return
 		case itemBareString:
 			if !isASCIIPlistHex(token.item.Value) {
