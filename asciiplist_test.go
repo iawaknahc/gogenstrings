@@ -63,30 +63,35 @@ func TestParseASCIIPlist(t *testing.T) {
 		expected interface{}
 	}{
 		// string
-		{"a", "a"},
-		{"$-_.:/", "$-_.:/"},
-		{`"a"`, "a"},
+		{"/*a*/ a /*a*/", "a"},
+		{"/*a*/ $-_.:/ /*a*/", "$-_.:/"},
+		{`/*a*/"a"/*a*/`, "a"},
 
 		// data
-		{"<>", []byte{}},
-		{"<00>", []byte{0}},
-		{"<0001>", []byte{0, 1}},
+		{"/*a*/<>/*a*/", []byte{}},
+		{"/*a*/<00>/*a*/", []byte{0}},
+		{"/*a*/<0001>/*a*/", []byte{0, 1}},
 
 		// array
-		{"()", []interface{}{}},
-		{"(1)", []interface{}{"1"}},
-		{"(1,2)", []interface{}{"1", "2"}},
+		{"/*a*/(/*a*/)/*a*/", []interface{}{}},
+		{"/*a*/(/*a*/1 /*a*/)/*a*/", []interface{}{"1"}},
+		{"/*a*/(/*a*/1 /*a*/,/*a*/2 /*a*/)/*a*/", []interface{}{"1", "2"}},
 
 		// dict
 		{"", map[string]interface{}{}},
+		{" ", map[string]interface{}{}},
+		{"/*a*/", map[string]interface{}{}},
+		{"/*a*/ ", map[string]interface{}{}},
+		{" /*a*/", map[string]interface{}{}},
+		{" /*a*/ ", map[string]interface{}{}},
 		{
-			"$-_.:/=a;",
+			"/*a*/$-_.:/ /*a*/=/*a*/a /*a*/;/*a*/",
 			map[string]interface{}{
 				"$-_.:/": "a",
 			},
 		},
 		{
-			`{"$-_.:/"="$-_.:/";}`,
+			`/*a*/{/*a*/"$-_.:/"/*a*/=/*a*/"$-_.:/"/*a*/;/*a*/}/*a*/`,
 			map[string]interface{}{
 				"$-_.:/": "$-_.:/",
 			},
@@ -94,20 +99,21 @@ func TestParseASCIIPlist(t *testing.T) {
 
 		// nested
 		{
-			`{
-				version = 1;
-				classes = ();
-				data = <>;
-				objects = {
-					john = doe;
-					alice = (
+			`/* a */{
+				/* a */
+				version /* a */ = 1 /* a */;
+				classes /* a */ = () /* a */;
+				data /* a */ = <> /* a */;
+				objects /* a */ = {
+					john /* a */ = doe /* a */;
+					alice /* a */ = (
 						{
 							name = alice;
-						},
-						<deadbeef>
-					);
-				};
-			}`,
+						} /* a */,
+						<deadbeef> /* a */
+					) /* a */;
+				} /* a */;
+			}/* a */`,
 			map[string]interface{}{
 				"version": "1",
 				"classes": []interface{}{},

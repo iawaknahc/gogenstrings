@@ -24,6 +24,12 @@ type ASCIIPlistNode struct {
 	Col int
 }
 
+type annotatedItem struct {
+	item       lexItem
+	comment    lexItem
+	hasComment bool
+}
+
 func (v ASCIIPlistNode) String() string {
 	switch x := v.Value.(type) {
 	case string:
@@ -65,34 +71,53 @@ type asciiPlistParser struct {
 	filepath  string
 	lexer     *lexer
 	peekCount int
-	token     [2]lexItem
+	token     [2]annotatedItem
 }
 
-func (p *asciiPlistParser) next() lexItem {
+func (p *asciiPlistParser) next() annotatedItem {
 	if p.peekCount > 0 {
 		p.peekCount--
 	} else {
-		p.token[0] = p.lexer.nextItem()
+		item := p.lexer.nextItem()
+		aitem := annotatedItem{
+			item: item,
+		}
+		p.token[0] = aitem
 	}
 	return p.token[p.peekCount]
 }
 
-func (p *asciiPlistParser) backup() {
+func (p *asciiPlistParser) backup(t0 annotatedItem) {
+	p.token[p.peekCount] = t0
 	p.peekCount++
 }
 
-func (p *asciiPlistParser) backup2(t1 lexItem) {
+func (p *asciiPlistParser) backup2(t0, t1 annotatedItem) {
+	p.token[0] = t0
 	p.token[1] = t1
 	p.peekCount = 2
 }
 
-func (p *asciiPlistParser) nextNonSpace() lexItem {
+func (p *asciiPlistParser) nextNonSpace() annotatedItem {
+	var aitem annotatedItem
+	var comment lexItem
+	hasComment := false
+Loop:
 	for {
-		item := p.next()
-		if item.Type != itemSpaces {
-			return item
+		aitem = p.next()
+		switch aitem.item.Type {
+		case itemSpaces:
+			break
+		case itemComment:
+			hasComment = true
+			comment = aitem.item
+		default:
+			aitem.comment = comment
+			aitem.hasComment = hasComment
+			break Loop
 		}
 	}
+	return aitem
 }
 
 func (p *asciiPlistParser) recover(errp *error) {
@@ -105,27 +130,27 @@ func (p *asciiPlistParser) recover(errp *error) {
 	}
 }
 
-func (p *asciiPlistParser) expect(expected itemType) lexItem {
-	item := p.nextNonSpace()
-	if item.Type != expected {
-		p.unexpected(item)
+func (p *asciiPlistParser) expect(expected itemType) annotatedItem {
+	aitem := p.nextNonSpace()
+	if aitem.item.Type != expected {
+		p.unexpected(aitem)
 	}
-	return item
+	return aitem
 }
 
-func (p *asciiPlistParser) unexpected(item lexItem) {
-	if item.Type == itemError {
-		panic(item.Err)
+func (p *asciiPlistParser) unexpected(aitem annotatedItem) {
+	if aitem.item.Type == itemError {
+		panic(aitem.item.Err)
 	} else {
-		panic(item.unexpectedTokenErr())
+		panic(aitem.item.unexpectedTokenErr())
 	}
 }
 
 func (p *asciiPlistParser) parseValue() (out ASCIIPlistNode) {
 	token := p.nextNonSpace()
-	switch token.Type {
+	switch token.item.Type {
 	case itemString, itemBareString:
-		p.backup()
+		p.backup(token)
 		out = p.parseString()
 	case itemBraceLeft:
 		out = p.parseDict(token, itemBraceRight)
@@ -141,34 +166,34 @@ func (p *asciiPlistParser) parseValue() (out ASCIIPlistNode) {
 
 func (p *asciiPlistParser) parseString() (out ASCIIPlistNode) {
 	token := p.nextNonSpace()
-	switch token.Type {
+	switch token.item.Type {
 	case itemString, itemBareString:
 		value := ""
-		if token.Type == itemString {
-			value = getStringValue(token.Value)
+		if token.item.Type == itemString {
+			value = getStringValue(token.item.Value)
 		} else {
-			value = token.Value
+			value = token.item.Value
 		}
 		out.Value = value
-		out.Line = token.StartLine
-		out.Col = token.StartCol
+		out.Line = token.item.StartLine
+		out.Col = token.item.StartCol
 	default:
 		p.unexpected(token)
 	}
 	return
 }
 
-func (p *asciiPlistParser) parseDict(startToken lexItem, terminatingType itemType) (out ASCIIPlistNode) {
+func (p *asciiPlistParser) parseDict(startToken annotatedItem, terminatingType itemType) (out ASCIIPlistNode) {
 	outValue := make(map[string]interface{})
 	out.Value = outValue
-	out.Line = startToken.StartLine
-	out.Col = startToken.StartCol
+	out.Line = startToken.item.StartLine
+	out.Col = startToken.item.StartCol
 	for {
 		token := p.nextNonSpace()
-		if token.Type == terminatingType {
+		if token.item.Type == terminatingType {
 			return
 		}
-		p.backup()
+		p.backup(token)
 		keyValue := p.parseString()
 		p.expect(itemEqualSign)
 		valueValue := p.parseValue()
@@ -186,18 +211,18 @@ func (p *asciiPlistParser) parseDict(startToken lexItem, terminatingType itemTyp
 	}
 }
 
-func (p *asciiPlistParser) parseArray(startToken lexItem) (out ASCIIPlistNode) {
+func (p *asciiPlistParser) parseArray(startToken annotatedItem) (out ASCIIPlistNode) {
 	outValue := []interface{}{}
-	out.Line = startToken.StartLine
-	out.Col = startToken.StartCol
+	out.Line = startToken.item.StartLine
+	out.Col = startToken.item.StartCol
 	first := true
 	for {
 		token := p.nextNonSpace()
-		if token.Type == itemParenRight {
+		if token.item.Type == itemParenRight {
 			out.Value = outValue
 			return
 		}
-		p.backup()
+		p.backup(token)
 		if !first {
 			p.expect(itemComma)
 		}
@@ -223,13 +248,13 @@ func isASCIIPlistHex(s string) bool {
 	return length%2 == 0
 }
 
-func (p *asciiPlistParser) parseData(startToken lexItem) (out ASCIIPlistNode) {
+func (p *asciiPlistParser) parseData(startToken annotatedItem) (out ASCIIPlistNode) {
 	buf := bytes.Buffer{}
-	out.Line = startToken.StartLine
-	out.Col = startToken.StartCol
+	out.Line = startToken.item.StartLine
+	out.Col = startToken.item.StartCol
 	for {
 		token := p.nextNonSpace()
-		switch token.Type {
+		switch token.item.Type {
 		case itemGreaterThanSign:
 			src := buf.Bytes()
 			dst := make([]byte, hex.DecodedLen(len(src)))
@@ -240,10 +265,10 @@ func (p *asciiPlistParser) parseData(startToken lexItem) (out ASCIIPlistNode) {
 			out.Value = dst
 			return
 		case itemBareString:
-			if !isASCIIPlistHex(token.Value) {
+			if !isASCIIPlistHex(token.item.Value) {
 				p.unexpected(token)
 			}
-			buf.WriteString(token.Value)
+			buf.WriteString(token.item.Value)
 		default:
 			p.unexpected(token)
 		}
@@ -253,25 +278,24 @@ func (p *asciiPlistParser) parseData(startToken lexItem) (out ASCIIPlistNode) {
 func (p *asciiPlistParser) parse() (out ASCIIPlistNode, err error) {
 	defer p.recover(&err)
 	token := p.nextNonSpace()
-	if token.Type == itemEOF {
-		out.Value = make(map[string]interface{})
-		return
-	}
-	switch token.Type {
+	switch token.item.Type {
+	case itemEOF:
+		p.backup(token)
+		out = p.parseDict(token, itemEOF)
 	case itemString, itemBareString:
 		nextToken := p.nextNonSpace()
-		switch nextToken.Type {
+		switch nextToken.item.Type {
 		case itemEOF:
-			p.backup2(token)
+			p.backup2(nextToken, token)
 			out = p.parseString()
 		case itemEqualSign:
-			p.backup2(token)
+			p.backup2(nextToken, token)
 			out = p.parseDict(token, itemEOF)
 		default:
 			p.unexpected(nextToken)
 		}
 	default:
-		p.backup()
+		p.backup(token)
 		out = p.parseValue()
 	}
 	p.expect(itemEOF)
