@@ -4,13 +4,6 @@ import (
 	"testing"
 )
 
-func TestGetComment(t *testing.T) {
-	rawComment := "/* comment */"
-	if getComment(rawComment) != "comment" {
-		t.Fail()
-	}
-}
-
 func TestGetStringValue(t *testing.T) {
 	stringLiteral := `"string"`
 	if getStringValue(stringLiteral) != "string" {

@@ -38,7 +38,7 @@ func (v annotatedItem) getComment() string {
 	if !v.hasComment {
 		return ""
 	}
-	return getComment(v.comment.Value)
+	return v.comment.Value
 }
 
 func (v annotatedItem) canHaveCommentBefore() bool {

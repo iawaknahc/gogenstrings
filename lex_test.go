@@ -27,6 +27,7 @@ func TestLexASCIIPlist(t *testing.T) {
 	expected := []lexItem{
 		lexItem{
 			Type:      itemSpaces,
+			RawValue:  "\n\t",
 			Value:     "\n\t",
 			Start:     0,
 			End:       2,
@@ -37,6 +38,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemBraceLeft,
+			RawValue:  "{",
 			Value:     "{",
 			Start:     2,
 			End:       3,
@@ -47,6 +49,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemSpaces,
+			RawValue:  "\n\t\t",
 			Value:     "\n\t\t",
 			Start:     3,
 			End:       6,
@@ -57,6 +60,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemBareString,
+			RawValue:  "$-_.:/",
 			Value:     "$-_.:/",
 			Start:     6,
 			End:       12,
@@ -67,6 +71,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemSpaces,
+			RawValue:  " ",
 			Value:     " ",
 			Start:     12,
 			End:       13,
@@ -77,6 +82,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemEqualSign,
+			RawValue:  "=",
 			Value:     "=",
 			Start:     13,
 			End:       14,
@@ -87,6 +93,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemSpaces,
+			RawValue:  " ",
 			Value:     " ",
 			Start:     14,
 			End:       15,
@@ -97,6 +104,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemParenLeft,
+			RawValue:  "(",
 			Value:     "(",
 			Start:     15,
 			End:       16,
@@ -107,6 +115,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemBareString,
+			RawValue:  "1",
 			Value:     "1",
 			Start:     16,
 			End:       17,
@@ -117,6 +126,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemComma,
+			RawValue:  ",",
 			Value:     ",",
 			Start:     17,
 			End:       18,
@@ -127,6 +137,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemSpaces,
+			RawValue:  " ",
 			Value:     " ",
 			Start:     18,
 			End:       19,
@@ -137,6 +148,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemBareString,
+			RawValue:  "2",
 			Value:     "2",
 			Start:     19,
 			End:       20,
@@ -147,6 +159,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemParenRight,
+			RawValue:  ")",
 			Value:     ")",
 			Start:     20,
 			End:       21,
@@ -157,6 +170,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemSemicolon,
+			RawValue:  ";",
 			Value:     ";",
 			Start:     21,
 			End:       22,
@@ -167,6 +181,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemSpaces,
+			RawValue:  "\n\t\t",
 			Value:     "\n\t\t",
 			Start:     22,
 			End:       25,
@@ -177,6 +192,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemBareString,
+			RawValue:  "a",
 			Value:     "a",
 			Start:     25,
 			End:       26,
@@ -187,6 +203,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemSpaces,
+			RawValue:  " ",
 			Value:     " ",
 			Start:     26,
 			End:       27,
@@ -197,6 +214,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemEqualSign,
+			RawValue:  "=",
 			Value:     "=",
 			Start:     27,
 			End:       28,
@@ -207,6 +225,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemSpaces,
+			RawValue:  " ",
 			Value:     " ",
 			Start:     28,
 			End:       29,
@@ -217,6 +236,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemLessThanSign,
+			RawValue:  "<",
 			Value:     "<",
 			Start:     29,
 			End:       30,
@@ -227,6 +247,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemBareString,
+			RawValue:  "dead",
 			Value:     "dead",
 			Start:     30,
 			End:       34,
@@ -237,6 +258,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemSpaces,
+			RawValue:  " ",
 			Value:     " ",
 			Start:     34,
 			End:       35,
@@ -247,6 +269,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemBareString,
+			RawValue:  "beef",
 			Value:     "beef",
 			Start:     35,
 			End:       39,
@@ -257,6 +280,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemGreaterThanSign,
+			RawValue:  ">",
 			Value:     ">",
 			Start:     39,
 			End:       40,
@@ -267,6 +291,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemSemicolon,
+			RawValue:  ";",
 			Value:     ";",
 			Start:     40,
 			End:       41,
@@ -277,6 +302,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemSpaces,
+			RawValue:  "\n\t",
 			Value:     "\n\t",
 			Start:     41,
 			End:       43,
@@ -287,6 +313,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemBraceRight,
+			RawValue:  "}",
 			Value:     "}",
 			Start:     43,
 			End:       44,
@@ -297,6 +324,7 @@ func TestLexASCIIPlist(t *testing.T) {
 		},
 		lexItem{
 			Type:      itemSpaces,
+			RawValue:  "\n",
 			Value:     "\n",
 			Start:     44,
 			End:       45,

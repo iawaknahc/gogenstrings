@@ -16,7 +16,7 @@ func (p *dotStringsParser) parse() (output entries, err error) {
 		var comment string
 
 		if token.Type == itemComment {
-			comment = getComment(token.Value)
+			comment = token.Value
 			key = p.expect(itemString)
 		} else if token.Type == itemString {
 			comment = ""

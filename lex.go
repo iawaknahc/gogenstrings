@@ -79,6 +79,7 @@ func (v itemType) String() string {
 type lexItem struct {
 	Type      itemType
 	Value     string
+	RawValue  string
 	Err       error
 	Filepath  string
 	Start     int
@@ -164,11 +165,16 @@ func (l *lexer) ignore() {
 }
 
 func (l *lexer) emit(typ itemType) {
+	l.emitValue(typ, l.input[l.start:l.pos])
+}
+
+func (l *lexer) emitValue(typ itemType, value string) {
 	startLine, startCol := l.lineCol(l.start)
 	endLine, endCol := l.lineCol(l.pos)
 	item := lexItem{
 		Type:      typ,
-		Value:     l.input[l.start:l.pos],
+		RawValue:  l.input[l.start:l.pos],
+		Value:     value,
 		Filepath:  l.filepath,
 		Start:     l.start,
 		End:       l.pos,
@@ -258,7 +264,8 @@ func lexComment(state stateFn) stateFn {
 			if strings.HasPrefix(l.input[l.pos:], "*/") {
 				l.next()
 				l.next()
-				l.emit(itemComment)
+				value := l.input[l.start+2 : l.pos-2]
+				l.emitValue(itemComment, value)
 				return state
 			}
 			if r := l.next(); r == eof {

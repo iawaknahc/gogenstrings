@@ -4,10 +4,6 @@ import (
 	"strings"
 )
 
-func getComment(c string) string {
-	return strings.TrimSpace(c[2 : len(c)-2])
-}
-
 func getStringValue(s string) string {
 	return s[1 : len(s)-1]
 }
@@ -41,7 +37,7 @@ func (ls entry) print(suppressEmptyComment bool) string {
 	output := ""
 	printComment := !suppressEmptyComment || ls.comment != ""
 	if printComment {
-		output += "/* " + ls.comment + " */\n"
+		output += "/* " + strings.TrimSpace(ls.comment) + " */\n"
 	}
 	output += `"` + ls.key + `" = "` + ls.value + `";` + "\n\n"
 	return output

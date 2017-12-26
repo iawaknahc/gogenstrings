@@ -19,7 +19,7 @@ func TestParseDotStrings(t *testing.T) {
 			startCol:  1,
 			key:       "key_with_comment",
 			value:     "value",
-			comment:   "has_comment",
+			comment:   " has_comment ",
 		},
 		entry{
 			startLine: 5,
