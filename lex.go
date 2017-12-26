@@ -244,6 +244,12 @@ func isASCIIPlistBareString(r rune) bool {
 		r == '$' || r == '-' || r == '_' || r == '.' || r == ':' || r == '/'
 }
 
+func isHex(r rune) bool {
+	return r >= 'a' && r <= 'f' ||
+		r >= 'A' && r <= 'F' ||
+		r >= '0' && r <= '9'
+}
+
 func lexComment(state stateFn) stateFn {
 	return func(l *lexer) stateFn {
 		l.next()
