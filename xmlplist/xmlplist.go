@@ -258,10 +258,24 @@ func (p *xmlPlistParser) expectCharData() string {
 	return string(charData.Copy())
 }
 
-func (p *xmlPlistParser) parseString(elementName string) string {
-	charData := p.expectCharData()
-	_ = p.expectEndElement(false, makeEndElement(elementName))
-	return charData
+func (p *xmlPlistParser) parseString(elementName string) (out string) {
+	expected := "CharData or </" + elementName + ">"
+	token := p.nextToken()
+	if token == nil {
+		p.unexpectedEOF(expected)
+	}
+	switch v := token.(type) {
+	case xml.EndElement:
+		if v.Name.Local == elementName {
+			return
+		}
+	case xml.CharData:
+		out = string(v.Copy())
+		_ = p.expectEndElement(false, makeEndElement(elementName))
+	default:
+		p.unexpected(token, expected)
+	}
+	return
 }
 
 func (p *xmlPlistParser) parseReal() float64 {
