@@ -14,7 +14,8 @@ import (
 	"github.com/iawaknahc/gogenstrings/linecol"
 )
 
-// Value represents a value in plist
+// Value represents a value in plist.
+// The zero value is not safe to use.
 type Value struct {
 	// Value stores the actual value.
 	// The mapping is as follows:
@@ -388,9 +389,18 @@ func (p *xmlPlistParser) parseDict() map[string]interface{} {
 			if v.Name.Local != "key" {
 				p.unexpected(token, makeStartElement("key"))
 			}
+			line, col := p.lineColer.LineCol(p.offset)
 			key := p.parseString("key")
 			startElement := p.expectStartElement(true, anyPlistValue)
 			value := p.parseValue(startElement)
+			if _, ok := out[key]; ok {
+				panic(errors.FileLineCol(
+					p.filepath,
+					line,
+					col,
+					fmt.Sprintf("duplicated key `%v`", key),
+				))
+			}
 			out[key] = value
 		default:
 			p.unexpected(token, anyPlistValue)
