@@ -196,6 +196,10 @@ func (l *lexer) invalidUnicodeEscape() stateFn {
 	return l.emitError("invalid unicode escape", true)
 }
 
+func (l *lexer) invalidUniversalCharacterName() stateFn {
+	return l.emitError("invalid universal character name", true)
+}
+
 func (l *lexer) invalidEscape() stateFn {
 	return l.emitError("invalid escape", true)
 }
@@ -274,6 +278,25 @@ func isHex(r rune) bool {
 		r >= '0' && r <= '9'
 }
 
+func isOctal(r rune) bool {
+	return r >= '0' && r <= '7'
+}
+
+func isValidUniversalCharacterName(r rune) bool {
+	// From C99 spec
+	if r == 0x0024 || r == 0x0040 || r == 0x0060 {
+		return true
+	}
+	if r < 0x00A0 || r >= 0xD800 && r <= 0xDFFF {
+		return false
+	}
+	return utf8.ValidRune(r)
+}
+
+func isValidEscapedRune(r rune) bool {
+	return r >= 0 && r <= 127
+}
+
 func lexComment(state stateFn) stateFn {
 	return func(l *lexer) stateFn {
 		l.next()
@@ -308,6 +331,46 @@ func lexSpaces(state stateFn) stateFn {
 			}
 		}
 	}
+}
+
+func lexHexDigits(l *lexer, min, max int) (int64, bool) {
+	hexDigits := []rune{}
+	for i := 0; i < max; i++ {
+		hexDigit := l.next()
+		if !isHex(hexDigit) {
+			l.backup()
+			break
+		}
+		hexDigits = append(hexDigits, hexDigit)
+	}
+	if len(hexDigits) < min || len(hexDigits) > max {
+		return 0, false
+	}
+	value, err := strconv.ParseInt(string(hexDigits), 16, 64)
+	if err != nil {
+		return 0, false
+	}
+	return value, true
+}
+
+func lexOctalDigits(l *lexer, min, max int) (int64, bool) {
+	octalDigits := []rune{}
+	for i := 0; i < max; i++ {
+		octalDigit := l.next()
+		if !isOctal(octalDigit) {
+			l.backup()
+			break
+		}
+		octalDigits = append(octalDigits, octalDigit)
+	}
+	if len(octalDigits) < min || len(octalDigits) > max {
+		return 0, false
+	}
+	value, err := strconv.ParseInt(string(octalDigits), 8, 64)
+	if err != nil {
+		return 0, false
+	}
+	return value, true
 }
 
 func lexStringSwift(state stateFn) stateFn {
@@ -376,9 +439,101 @@ func lexStringSwift(state stateFn) stateFn {
 					if !utf8.ValidRune(unsafeRune) {
 						return l.invalidUnicodeEscape()
 					}
-					runes = append(runes, rune(codePointInt64))
+					runes = append(runes, unsafeRune)
 				default:
 					return l.invalidEscape()
+				}
+			default:
+				runes = append(runes, r)
+			}
+		}
+	}
+}
+
+func lexStringObjc(state stateFn) stateFn {
+	// Based on C99 spec
+	return func(l *lexer) stateFn {
+		l.next()
+		runes := []rune{}
+		for {
+			r := l.next()
+			switch r {
+			case eof, '\n', '\r':
+				return l.unterminatedStringLiteral()
+			case '"':
+				l.emitValue(itemString, string(runes))
+				return state
+			case '\\':
+				nextRune := l.next()
+				switch nextRune {
+				case eof:
+					return l.unterminatedStringLiteral()
+				case '\\':
+					runes = append(runes, '\\')
+				case 'a':
+					runes = append(runes, '\a')
+				case 'b':
+					runes = append(runes, '\b')
+				case 'f':
+					runes = append(runes, '\f')
+				case 'n':
+					runes = append(runes, '\n')
+				case 'r':
+					runes = append(runes, '\r')
+				case 't':
+					runes = append(runes, '\t')
+				case 'v':
+					runes = append(runes, '\v')
+				case '\'':
+					runes = append(runes, '\'')
+				case '"':
+					runes = append(runes, '"')
+				case '?':
+					runes = append(runes, '?')
+				case 'u':
+					codePointInt64, ok := lexHexDigits(l, 4, 4)
+					if !ok {
+						return l.invalidUniversalCharacterName()
+					}
+					unsafeRune := rune(codePointInt64)
+					if !isValidUniversalCharacterName(unsafeRune) {
+						return l.invalidUniversalCharacterName()
+					}
+					runes = append(runes, unsafeRune)
+				case 'U':
+					codePointInt64, ok := lexHexDigits(l, 8, 8)
+					if !ok {
+						return l.invalidUniversalCharacterName()
+					}
+					unsafeRune := rune(codePointInt64)
+					if !isValidUniversalCharacterName(unsafeRune) {
+						return l.invalidUniversalCharacterName()
+					}
+					runes = append(runes, unsafeRune)
+				case 'x':
+					codePointInt64, ok := lexHexDigits(l, 1, 2)
+					if !ok {
+						return l.invalidEscape()
+					}
+					unsafeRune := rune(codePointInt64)
+					if !isValidEscapedRune(unsafeRune) {
+						return l.invalidEscape()
+					}
+					runes = append(runes, unsafeRune)
+				default:
+					if !isOctal(nextRune) {
+						return l.invalidEscape()
+					}
+					l.backup()
+					codePointInt64, ok := lexOctalDigits(l, 1, 3)
+					if !ok {
+						return l.invalidEscape()
+					}
+					unsafeRune := rune(codePointInt64)
+					if !isValidEscapedRune(unsafeRune) {
+						return l.invalidEscape()
+					}
+					runes = append(runes, unsafeRune)
 				}
 			default:
 				runes = append(runes, r)

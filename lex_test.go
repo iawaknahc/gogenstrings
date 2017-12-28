@@ -355,6 +355,17 @@ func lexOneSwiftString(l *lexer) stateFn {
 	}
 }
 
+func lexOneObjcString(l *lexer) stateFn {
+	r := l.next()
+	switch r {
+	case eof:
+		return l.eof()
+	default:
+		l.backup()
+		return lexStringObjc(lexOneObjcString)
+	}
+}
+
 func TestLexStringSwift(t *testing.T) {
 	cases := []struct {
 		input    string
@@ -371,6 +382,7 @@ func TestLexStringSwift(t *testing.T) {
 		{`"\u{00000a}"`, "\n"},
 		{`"\u{000000a}"`, "\n"},
 		{`"\u{0000000a}"`, "\n"},
+		{`"\u{0000000a}a"`, "\na"},
 	}
 	for _, c := range cases {
 		l := newLexer(c.input, "", lexOneSwiftString)
@@ -405,6 +417,113 @@ func TestLexStringSwiftInvalid(t *testing.T) {
 	}
 	for _, c := range cases {
 		l := newLexer(c.input, "", lexOneSwiftString)
+		lexItems := drainLexer(&l)
+		if len(lexItems) != 1 {
+			t.Fail()
+		} else {
+			err := lexItems[0].Err
+			if err == nil {
+				t.Fail()
+			} else {
+				msg := err.Error()
+				if c.msg != msg {
+					t.Fail()
+				}
+			}
+		}
+	}
+}
+
+func TestLexStringObjc(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected string
+	}{
+		{`""`, ""},
+
+		{`"a"`, "a"},
+
+		{`"\\\a\b\f\n\r\t\v\'\"\?"`, "\\\a\b\f\n\r\t\v'\"?"},
+
+		{`"\u0024\u0040\u0060"`, "$@`"},
+		{`"\u00a0\u00a1"`, "\u00a0\u00a1"},
+
+		{`"\U00000024\U00000040\U00000060"`, "$@`"},
+		{`"\U000000a0\U000000a1"`, "\u00a0\u00a1"},
+
+		{`"\xa"`, "\n"},
+		{`"\xag"`, "\ng"},
+		{`"\x0a"`, "\n"},
+		{`"\x0"`, "\u0000"},
+		{`"\x1f"`, "\u001f"},
+
+		{`"\0"`, "\u0000"},
+		{`"\08"`, "\u00008"},
+
+		{`"\00"`, "\u0000"},
+		{`"\008"`, "\u00008"},
+
+		{`"\000"`, "\u0000"},
+		{`"\0008"`, "\u00008"},
+	}
+	for _, c := range cases {
+		l := newLexer(c.input, "", lexOneObjcString)
+		lexItems := drainLexer(&l)
+		if len(lexItems) != 2 {
+			t.Fail()
+		} else {
+			actual := lexItems[0].Value
+			if c.expected != actual {
+				t.Fail()
+			}
+		}
+	}
+}
+
+func TestLexStringObjcInvalid(t *testing.T) {
+	cases := []struct {
+		input string
+		msg   string
+	}{
+		{`"`, ":1:1: unterminated string literal"},
+		{`"
+		`, ":1:1: unterminated string literal"},
+		{`"
+		"`, ":1:1: unterminated string literal"},
+		{`"\c"`, ":1:1: invalid escape"},
+
+		{`"\u"`, ":1:1: invalid universal character name"},
+		{`"\u0"`, ":1:1: invalid universal character name"},
+		{`"\u00"`, ":1:1: invalid universal character name"},
+		{`"\u000"`, ":1:1: invalid universal character name"},
+		{`"\ug"`, ":1:1: invalid universal character name"},
+		{`"\u0020"`, ":1:1: invalid universal character name"},
+		{`"\ud800"`, ":1:1: invalid universal character name"},
+		{`"\udfff"`, ":1:1: invalid universal character name"},
+
+		{`"\U"`, ":1:1: invalid universal character name"},
+		{`"\U0"`, ":1:1: invalid universal character name"},
+		{`"\U00"`, ":1:1: invalid universal character name"},
+		{`"\U000"`, ":1:1: invalid universal character name"},
+		{`"\U0000"`, ":1:1: invalid universal character name"},
+		{`"\U00000"`, ":1:1: invalid universal character name"},
+		{`"\U000000"`, ":1:1: invalid universal character name"},
+		{`"\U0000000"`, ":1:1: invalid universal character name"},
+		{`"\Ug"`, ":1:1: invalid universal character name"},
+		{`"\U00000020"`, ":1:1: invalid universal character name"},
+		{`"\U0000d800"`, ":1:1: invalid universal character name"},
+		{`"\U0000dfff"`, ":1:1: invalid universal character name"},
+
+		{`"\x"`, ":1:1: invalid escape"},
+		{`"\xg"`, ":1:1: invalid escape"},
+		{`"\xa0"`, ":1:1: invalid escape"},
+		{`"\xff"`, ":1:1: invalid escape"},
+
+		{`"\200"`, ":1:1: invalid escape"},
+		{`"\777"`, ":1:1: invalid escape"},
+	}
+	for _, c := range cases {
+		l := newLexer(c.input, "", lexOneObjcString)
 		lexItems := drainLexer(&l)
 		if len(lexItems) != 1 {
 			t.Fail()
