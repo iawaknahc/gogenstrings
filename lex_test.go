@@ -343,3 +343,81 @@ func TestLexASCIIPlist(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func lexOneSwiftString(l *lexer) stateFn {
+	r := l.next()
+	switch r {
+	case eof:
+		return l.eof()
+	default:
+		l.backup()
+		return lexStringSwift(lexOneSwiftString)
+	}
+}
+
+func TestLexStringSwift(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected string
+	}{
+		{`""`, ""},
+		{`"a"`, "a"},
+		{`"\\\0\t\r\n\'\""`, "\\\x00\t\r\n'\""},
+		{`"\u{a}"`, "\n"},
+		{`"\u{0a}"`, "\n"},
+		{`"\u{00a}"`, "\n"},
+		{`"\u{000a}"`, "\n"},
+		{`"\u{0000a}"`, "\n"},
+		{`"\u{00000a}"`, "\n"},
+		{`"\u{000000a}"`, "\n"},
+		{`"\u{0000000a}"`, "\n"},
+	}
+	for _, c := range cases {
+		l := newLexer(c.input, "", lexOneSwiftString)
+		lexItems := drainLexer(&l)
+		if len(lexItems) != 2 {
+			t.Fail()
+		} else {
+			actual := lexItems[0].Value
+			if c.expected != actual {
+				t.Fail()
+			}
+		}
+	}
+}
+
+func TestLexStringSwiftInvalid(t *testing.T) {
+	cases := []struct {
+		input string
+		msg   string
+	}{
+		{`"`, ":1:1: unterminated string literal"},
+		{`"
+		`, ":1:1: unterminated string literal"},
+		{`"
+		"`, ":1:1: unterminated string literal"},
+		{`"\b"`, ":1:1: invalid escape"},
+		{`"\u"`, ":1:1: invalid unicode escape"},
+		{`"\u{"`, ":1:1: invalid unicode escape"},
+		{`"\u{}"`, ":1:1: invalid unicode escape"},
+		{`"\u{123456789}"`, ":1:1: invalid unicode escape"},
+		{`"\u{110000}"`, ":1:1: invalid unicode escape"},
+	}
+	for _, c := range cases {
+		l := newLexer(c.input, "", lexOneSwiftString)
+		lexItems := drainLexer(&l)
+		if len(lexItems) != 1 {
+			t.Fail()
+		} else {
+			err := lexItems[0].Err
+			if err == nil {
+				t.Fail()
+			} else {
+				msg := err.Error()
+				if c.msg != msg {
+					t.Fail()
+				}
+			}
+		}
+	}
+}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -187,19 +188,26 @@ func (l *lexer) emitValue(typ itemType, value string) {
 	l.items <- item
 }
 
-func (l *lexer) unexpectedToken(r rune) stateFn {
+func (l *lexer) unterminatedStringLiteral() stateFn {
+	return l.emitError("unterminated string literal", true)
+}
+
+func (l *lexer) invalidUnicodeEscape() stateFn {
+	return l.emitError("invalid unicode escape", true)
+}
+
+func (l *lexer) invalidEscape() stateFn {
+	return l.emitError("invalid escape", true)
+}
+
+func (l *lexer) emitError(msg string, atStart bool) stateFn {
 	startLine, startCol := l.lineCol(l.start)
 	endLine, endCol := l.lineCol(l.pos)
 	var err error
-	if r == eof {
-		err = errors.FileLineCol(l.filepath, endLine, endCol-1, "unexpected EOF")
+	if atStart {
+		err = errors.FileLineCol(l.filepath, startLine, startCol, msg)
 	} else {
-		err = errors.FileLineCol(
-			l.filepath,
-			endLine,
-			endCol-1,
-			fmt.Sprintf("unexpected token `%c`", r),
-		)
+		err = errors.FileLineCol(l.filepath, endLine, endCol-1, msg)
 	}
 	item := lexItem{
 		Type:      itemError,
@@ -214,6 +222,16 @@ func (l *lexer) unexpectedToken(r rune) stateFn {
 	l.start = l.pos
 	l.items <- item
 	return nil
+}
+
+func (l *lexer) unexpectedToken(r rune) stateFn {
+	var msg string
+	if r == eof {
+		msg = "unexpected EOF"
+	} else {
+		msg = fmt.Sprintf("unexpected token `%c`", r)
+	}
+	return l.emitError(msg, false)
 }
 
 func (l *lexer) eof() stateFn {
@@ -287,6 +305,83 @@ func lexSpaces(state stateFn) stateFn {
 					l.emit(itemSpaces)
 				}
 				return state
+			}
+		}
+	}
+}
+
+func lexStringSwift(state stateFn) stateFn {
+	// https://github.com/apple/swift/blob/master/lib/Parse/Lexer.cpp
+	return func(l *lexer) stateFn {
+		l.next()
+		runes := []rune{}
+		for {
+			r := l.next()
+			switch r {
+			case eof, '\n', '\r':
+				return l.unterminatedStringLiteral()
+			case '"':
+				l.emitValue(itemString, string(runes))
+				return state
+			case '\\':
+				nextRune := l.next()
+				switch nextRune {
+				case eof:
+					return l.unterminatedStringLiteral()
+				case '\\':
+					runes = append(runes, '\\')
+				case '0':
+					runes = append(runes, rune(0))
+				case 't':
+					runes = append(runes, '\t')
+				case 'r':
+					runes = append(runes, '\r')
+				case 'n':
+					runes = append(runes, '\n')
+				case '\'':
+					runes = append(runes, '\'')
+				case '"':
+					runes = append(runes, '"')
+				case 'u':
+					leftBrace := l.next()
+					if leftBrace != '{' {
+						return l.invalidUnicodeEscape()
+					}
+					hexDigits := []rune{}
+				Loop:
+					for i := 0; i < 8; i++ {
+						hexDigit := l.next()
+						switch hexDigit {
+						case '}':
+							l.backup()
+							break Loop
+						default:
+							if !isHex(hexDigit) {
+								return l.invalidUnicodeEscape()
+							}
+							hexDigits = append(hexDigits, hexDigit)
+						}
+					}
+					if rightBrace := l.next(); rightBrace != '}' {
+						return l.invalidUnicodeEscape()
+					}
+					if len(hexDigits) < 1 || len(hexDigits) > 8 {
+						return l.invalidUnicodeEscape()
+					}
+					codePointInt64, err := strconv.ParseInt(string(hexDigits), 16, 32)
+					if err != nil {
+						return l.invalidUnicodeEscape()
+					}
+					unsafeRune := rune(codePointInt64)
+					if !utf8.ValidRune(unsafeRune) {
+						return l.invalidUnicodeEscape()
+					}
+					runes = append(runes, rune(codePointInt64))
+				default:
+					return l.invalidEscape()
+				}
+			default:
+				runes = append(runes, r)
 			}
 		}
 	}
