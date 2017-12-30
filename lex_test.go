@@ -366,6 +366,17 @@ func lexOneObjcString(l *lexer) stateFn {
 	}
 }
 
+func lexOneASCIIPlistString(l *lexer) stateFn {
+	r := l.next()
+	switch r {
+	case eof:
+		return l.eof()
+	default:
+		l.backup()
+		return lexStringASCIIPlist(lexOneASCIIPlistString)
+	}
+}
+
 func TestLexStringSwift(t *testing.T) {
 	cases := []struct {
 		input    string
@@ -524,6 +535,84 @@ func TestLexStringObjcInvalid(t *testing.T) {
 	}
 	for _, c := range cases {
 		l := newLexer(c.input, "", lexOneObjcString)
+		lexItems := drainLexer(&l)
+		if len(lexItems) != 1 {
+			t.Fail()
+		} else {
+			err := lexItems[0].Err
+			if err == nil {
+				t.Fail()
+			} else {
+				msg := err.Error()
+				if c.msg != msg {
+					t.Fail()
+				}
+			}
+		}
+	}
+}
+
+func TestLexStringASCIIPlist(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected string
+	}{
+		{`""`, ""},
+
+		{`"a"`, "a"},
+
+		{`"\\\a\b\f\n\r\t\v\'\"\?"`, "\\\a\b\f\n\r\t\v'\"?"},
+
+		{`"\000"`, "\u0000"},
+		{`"\040"`, " "},
+		{`"\000a"`, "\u0000a"},
+		{`"\1761"`, "~1"},
+
+		{`"\Ua"`, "\n"},
+		{`"\Uag"`, "\ng"},
+		{`"\UA"`, "\n"},
+		{`"\U7e"`, "~"},
+		{`"\U7E"`, "~"},
+		{`"\U100"`, "Ā"},
+		{`"\Ud7ff"`, "\ud7ff"},
+		{`"\Ue800"`, "\ue800"},
+		{`"\Uffff"`, "\uffff"},
+
+		{`"\UD83E\UDD14"`, "🤔"},
+	}
+	for _, c := range cases {
+		l := newLexer(c.input, "", lexOneASCIIPlistString)
+		lexItems := drainLexer(&l)
+		if len(lexItems) != 2 {
+			t.Fail()
+		} else {
+			actual := lexItems[0].Value
+			if c.expected != actual {
+				t.Fail()
+			}
+		}
+	}
+}
+
+func TestLexStringASCIIPlistInvalid(t *testing.T) {
+	cases := []struct {
+		input string
+		msg   string
+	}{
+		{`"`, ":1:1: unterminated string literal"},
+		{`"
+		`, ":1:1: unterminated string literal"},
+		{`"
+		"`, ":1:1: unterminated string literal"},
+
+		{`"\c"`, ":1:1: invalid escape"},
+
+		{`"\Ug"`, ":1:1: invalid UTF-16 escape"},
+		{`"\Ud800"`, ":1:1: invalid UTF-16 escape"},
+		{`"\Ud800\Ua"`, ":1:1: invalid UTF-16 escape"},
+	}
+	for _, c := range cases {
+		l := newLexer(c.input, "", lexOneASCIIPlistString)
 		lexItems := drainLexer(&l)
 		if len(lexItems) != 1 {
 			t.Fail()

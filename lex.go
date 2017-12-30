@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf16"
 	"unicode/utf8"
 
 	"github.com/iawaknahc/gogenstrings/errors"
@@ -194,6 +195,10 @@ func (l *lexer) unterminatedStringLiteral() stateFn {
 
 func (l *lexer) invalidUnicodeEscape() stateFn {
 	return l.emitError("invalid unicode escape", true)
+}
+
+func (l *lexer) invalidUTF16Escape() stateFn {
+	return l.emitError("invalid UTF-16 escape", true)
 }
 
 func (l *lexer) invalidUniversalCharacterName() stateFn {
@@ -523,6 +528,91 @@ func lexStringObjc(state stateFn) stateFn {
 					}
 					l.backup()
 					unsafeRune, ok := lexOctalDigits(l, 1, 3)
+					if !ok {
+						return l.invalidEscape()
+					}
+					if !isValidEscapedRune(unsafeRune) {
+						return l.invalidEscape()
+					}
+					runes = append(runes, unsafeRune)
+				}
+			default:
+				runes = append(runes, r)
+			}
+		}
+	}
+}
+
+func lexStringASCIIPlist(state stateFn) stateFn {
+	return func(l *lexer) stateFn {
+		l.next()
+		runes := []rune{}
+		for {
+			r := l.next()
+			switch r {
+			case eof, '\n', '\r':
+				return l.unterminatedStringLiteral()
+			case '"':
+				l.emitValue(itemString, string(runes))
+				return state
+			case '\\':
+				nextRune := l.next()
+				switch nextRune {
+				case eof:
+					return l.unterminatedStringLiteral()
+				case '\\':
+					runes = append(runes, '\\')
+				case 'a':
+					runes = append(runes, '\a')
+				case 'b':
+					runes = append(runes, '\b')
+				case 'f':
+					runes = append(runes, '\f')
+				case 'n':
+					runes = append(runes, '\n')
+				case 'r':
+					runes = append(runes, '\r')
+				case 't':
+					runes = append(runes, '\t')
+				case 'v':
+					runes = append(runes, '\v')
+				case '\'':
+					runes = append(runes, '\'')
+				case '"':
+					runes = append(runes, '"')
+				case '?':
+					runes = append(runes, '?')
+				case 'U':
+					utf16CodeUnit, ok := lexHexDigits(l, 1, 4)
+					if !ok {
+						return l.invalidUTF16Escape()
+					}
+					if utf16.IsSurrogate(utf16CodeUnit) {
+						highSurrogate := utf16CodeUnit
+						if backslash := l.next(); backslash != '\\' {
+							return l.invalidUTF16Escape()
+						}
+						if literalU := l.next(); literalU != 'U' {
+							return l.invalidUTF16Escape()
+						}
+						lowSurrogate, ok := lexHexDigits(l, 4, 4)
+						if !ok {
+							return l.invalidUTF16Escape()
+						}
+						codePoint := utf16.DecodeRune(highSurrogate, lowSurrogate)
+						if codePoint == '\uFFFD' {
+							return l.invalidUTF16Escape()
+						}
+						runes = append(runes, codePoint)
+					} else {
+						runes = append(runes, utf16CodeUnit)
+					}
+				default:
+					if !isOctal(nextRune) {
+						return l.invalidEscape()
+					}
+					l.backup()
+					unsafeRune, ok := lexOctalDigits(l, 3, 3)
 					if !ok {
 						return l.invalidEscape()
 					}
