@@ -198,6 +198,7 @@ func (p *asciiPlistParser) parseString() (out ASCIIPlistNode) {
 }
 
 func (p *asciiPlistParser) parseDict(startToken annotatedItem, terminatingType itemType) (out ASCIIPlistNode) {
+	seenKeys := make(map[string]bool)
 	outValue := make(map[ASCIIPlistNode]ASCIIPlistNode)
 	out.Value = outValue
 	out.Line = startToken.item.StartLine
@@ -216,14 +217,16 @@ func (p *asciiPlistParser) parseDict(startToken annotatedItem, terminatingType i
 		p.expect(itemEqualSign)
 		valueValue := p.parseValue()
 		p.expect(itemSemicolon)
-		if _, ok := outValue[keyValue]; ok {
+		key := keyValue.Value.(string)
+		if seen := seenKeys[key]; seen {
 			panic(errors.FileLineCol(
 				p.filepath,
 				keyValue.Line,
 				keyValue.Col,
-				fmt.Sprintf("duplicated key `%v`", keyValue.Value.(string)),
+				fmt.Sprintf("duplicated key `%v`", key),
 			))
 		}
+		seenKeys[key] = true
 		outValue[keyValue] = valueValue
 	}
 }

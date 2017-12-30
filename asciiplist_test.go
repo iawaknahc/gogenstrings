@@ -57,6 +57,26 @@ func TestASCIIPlistNodeFlatten(t *testing.T) {
 	}
 }
 
+func TestParseASCIIPlistInvalid(t *testing.T) {
+	cases := []struct {
+		input string
+		msg   string
+	}{
+		{"a=b;a=c;", ":1:5: duplicated key `a`"},
+	}
+	for _, c := range cases {
+		_, err := parseASCIIPlist(c.input, "")
+		if err == nil {
+			t.Fail()
+		} else {
+			msg := err.Error()
+			if msg != c.msg {
+				t.Fail()
+			}
+		}
+	}
+}
+
 func TestParseASCIIPlist(t *testing.T) {
 	cases := []struct {
 		input    string
