@@ -333,7 +333,7 @@ func lexSpaces(state stateFn) stateFn {
 	}
 }
 
-func lexHexDigits(l *lexer, min, max int) (int64, bool) {
+func lexHexDigits(l *lexer, min, max int) (rune, bool) {
 	hexDigits := []rune{}
 	for i := 0; i < max; i++ {
 		hexDigit := l.next()
@@ -346,14 +346,14 @@ func lexHexDigits(l *lexer, min, max int) (int64, bool) {
 	if len(hexDigits) < min || len(hexDigits) > max {
 		return 0, false
 	}
-	value, err := strconv.ParseInt(string(hexDigits), 16, 64)
+	value, err := strconv.ParseInt(string(hexDigits), 16, 32)
 	if err != nil {
 		return 0, false
 	}
-	return value, true
+	return rune(value), true
 }
 
-func lexOctalDigits(l *lexer, min, max int) (int64, bool) {
+func lexOctalDigits(l *lexer, min, max int) (rune, bool) {
 	octalDigits := []rune{}
 	for i := 0; i < max; i++ {
 		octalDigit := l.next()
@@ -366,11 +366,11 @@ func lexOctalDigits(l *lexer, min, max int) (int64, bool) {
 	if len(octalDigits) < min || len(octalDigits) > max {
 		return 0, false
 	}
-	value, err := strconv.ParseInt(string(octalDigits), 8, 64)
+	value, err := strconv.ParseInt(string(octalDigits), 8, 32)
 	if err != nil {
 		return 0, false
 	}
-	return value, true
+	return rune(value), true
 }
 
 func lexStringSwift(state stateFn) stateFn {
@@ -491,31 +491,28 @@ func lexStringObjc(state stateFn) stateFn {
 				case '?':
 					runes = append(runes, '?')
 				case 'u':
-					codePointInt64, ok := lexHexDigits(l, 4, 4)
+					unsafeRune, ok := lexHexDigits(l, 4, 4)
 					if !ok {
 						return l.invalidUniversalCharacterName()
 					}
-					unsafeRune := rune(codePointInt64)
 					if !isValidUniversalCharacterName(unsafeRune) {
 						return l.invalidUniversalCharacterName()
 					}
 					runes = append(runes, unsafeRune)
 				case 'U':
-					codePointInt64, ok := lexHexDigits(l, 8, 8)
+					unsafeRune, ok := lexHexDigits(l, 8, 8)
 					if !ok {
 						return l.invalidUniversalCharacterName()
 					}
-					unsafeRune := rune(codePointInt64)
 					if !isValidUniversalCharacterName(unsafeRune) {
 						return l.invalidUniversalCharacterName()
 					}
 					runes = append(runes, unsafeRune)
 				case 'x':
-					codePointInt64, ok := lexHexDigits(l, 1, 2)
+					unsafeRune, ok := lexHexDigits(l, 1, 2)
 					if !ok {
 						return l.invalidEscape()
 					}
-					unsafeRune := rune(codePointInt64)
 					if !isValidEscapedRune(unsafeRune) {
 						return l.invalidEscape()
 					}
@@ -525,11 +522,10 @@ func lexStringObjc(state stateFn) stateFn {
 						return l.invalidEscape()
 					}
 					l.backup()
-					codePointInt64, ok := lexOctalDigits(l, 1, 3)
+					unsafeRune, ok := lexOctalDigits(l, 1, 3)
 					if !ok {
 						return l.invalidEscape()
 					}
-					unsafeRune := rune(codePointInt64)
 					if !isValidEscapedRune(unsafeRune) {
 						return l.invalidEscape()
 					}
