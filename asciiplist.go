@@ -15,8 +15,8 @@ type ASCIIPlistNode struct {
 	// The mapping is as follows:
 	// "string" or string             -> string
 	// <abcdef1234567890>             -> []byte
-	// (array)                        -> []interface{}
-	// {_=dict;}                      -> map[string]interface{}
+	// (array)                        -> []ASCIIPlistNode
+	// {_=dict;}                      -> ASCIIPlistDict
 	Value interface{}
 	// Line is the line number.
 	Line int
@@ -26,6 +26,12 @@ type ASCIIPlistNode struct {
 	CommentBefore string
 	// CommentAfter is the comment after this node.
 	CommentAfter string
+}
+
+// ASCIIPlistDict represents a dict preserving key order.
+type ASCIIPlistDict struct {
+	Keys []ASCIIPlistNode
+	Map  map[ASCIIPlistNode]ASCIIPlistNode
 }
 
 type annotatedItem struct {
@@ -65,9 +71,9 @@ func (v ASCIIPlistNode) Flatten() interface{} {
 			out[i] = value.Flatten()
 		}
 		return out
-	case map[ASCIIPlistNode]ASCIIPlistNode:
-		out := make(map[string]interface{}, len(x))
-		for key, value := range x {
+	case ASCIIPlistDict:
+		out := make(map[string]interface{}, len(x.Map))
+		for key, value := range x.Map {
 			out[key.Value.(string)] = value.Flatten()
 		}
 		return out
@@ -199,8 +205,10 @@ func (p *asciiPlistParser) parseString() (out ASCIIPlistNode) {
 
 func (p *asciiPlistParser) parseDict(startToken annotatedItem, terminatingType itemType) (out ASCIIPlistNode) {
 	seenKeys := make(map[string]bool)
-	outValue := make(map[ASCIIPlistNode]ASCIIPlistNode)
-	out.Value = outValue
+	outValue := ASCIIPlistDict{
+		Keys: []ASCIIPlistNode{},
+		Map:  make(map[ASCIIPlistNode]ASCIIPlistNode),
+	}
 	out.Line = startToken.item.StartLine
 	out.Col = startToken.item.StartCol
 	out.CommentBefore = startToken.getComment()
@@ -210,6 +218,7 @@ func (p *asciiPlistParser) parseDict(startToken annotatedItem, terminatingType i
 			if nextToken := p.peekNonSpace(); !nextToken.canHaveCommentBefore() {
 				out.CommentAfter = nextToken.getComment()
 			}
+			out.Value = outValue
 			return
 		}
 		p.backup(token)
@@ -227,7 +236,8 @@ func (p *asciiPlistParser) parseDict(startToken annotatedItem, terminatingType i
 			))
 		}
 		seenKeys[key] = true
-		outValue[keyValue] = valueValue
+		outValue.Keys = append(outValue.Keys, keyValue)
+		outValue.Map[keyValue] = valueValue
 	}
 }
 

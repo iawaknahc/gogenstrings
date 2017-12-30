@@ -32,9 +32,12 @@ func TestASCIIPlistNodeFlatten(t *testing.T) {
 						Value: []byte{1},
 					},
 					ASCIIPlistNode{
-						Value: map[ASCIIPlistNode]ASCIIPlistNode{
-							ASCIIPlistNode{Value: "key"}: ASCIIPlistNode{
-								Value: []ASCIIPlistNode{},
+						Value: ASCIIPlistDict{
+							Keys: []ASCIIPlistNode{ASCIIPlistNode{Value: "key"}},
+							Map: map[ASCIIPlistNode]ASCIIPlistNode{
+								ASCIIPlistNode{Value: "key"}: ASCIIPlistNode{
+									Value: []ASCIIPlistNode{},
+								},
 							},
 						},
 					},
