@@ -667,32 +667,6 @@ func lexBareString(state stateFn) stateFn {
 	}
 }
 
-func lexEntry(l *lexer) stateFn {
-	for {
-		if strings.HasPrefix(l.input[l.pos:], "/*") {
-			return lexComment(lexEntry)
-		}
-		r := l.next()
-		switch r {
-		case eof:
-			return l.eof()
-		case '"':
-			l.backup()
-			return lexString(lexEntry)
-		case ';':
-			l.emit(itemSemicolon)
-		case '=':
-			l.emit(itemEqualSign)
-		default:
-			if isSpace(r) {
-				l.backup()
-				return lexSpaces(lexEntry)
-			}
-			return l.unexpectedToken(r)
-		}
-	}
-}
-
 func lexASCIIPlist(l *lexer) stateFn {
 	for {
 		if strings.HasPrefix(l.input[l.pos:], "/*") {
