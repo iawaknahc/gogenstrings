@@ -184,13 +184,7 @@ func (p *asciiPlistParser) parseString() (out ASCIIPlistNode) {
 	token := p.nextNonSpace()
 	switch token.item.Type {
 	case itemString, itemBareString:
-		value := ""
-		if token.item.Type == itemString {
-			value = getStringValue(token.item.Value)
-		} else {
-			value = token.item.Value
-		}
-		out.Value = value
+		out.Value = token.item.Value
 		out.Line = token.item.StartLine
 		out.Col = token.item.StartCol
 		out.CommentBefore = token.getComment()

@@ -704,7 +704,7 @@ func lexASCIIPlist(l *lexer) stateFn {
 			return l.eof()
 		case '"':
 			l.backup()
-			return lexString(lexASCIIPlist)
+			return lexStringASCIIPlist(lexASCIIPlist)
 		case ';':
 			l.emit(itemSemicolon)
 		case '=':
