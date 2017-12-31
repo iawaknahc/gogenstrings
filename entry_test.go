@@ -4,13 +4,6 @@ import (
 	"testing"
 )
 
-func TestGetStringValue(t *testing.T) {
-	stringLiteral := `"string"`
-	if getStringValue(stringLiteral) != "string" {
-		t.Fail()
-	}
-}
-
 func TestEntryMergeCall(t *testing.T) {
 	e := entry{}
 	call := routineCall{}

@@ -109,6 +109,7 @@ type stateFn func(*lexer) stateFn
 
 type lexer struct {
 	state     stateFn
+	lexString func(stateFn) stateFn
 	filepath  string
 	input     string
 	start     int
@@ -118,9 +119,10 @@ type lexer struct {
 	items     chan lexItem
 }
 
-func newLexer(input, filepath string, state stateFn) lexer {
+func newLexerWithString(input, filepath string, lexString func(stateFn) stateFn, state stateFn) lexer {
 	l := lexer{
 		state:     state,
+		lexString: lexString,
 		filepath:  filepath,
 		lineColer: linecol.NewLineColer(input),
 		input:     input,
@@ -128,6 +130,10 @@ func newLexer(input, filepath string, state stateFn) lexer {
 	}
 	go l.run()
 	return l
+}
+
+func newLexer(input, filepath string, state stateFn) lexer {
+	return newLexerWithString(input, filepath, nil, state)
 }
 
 func (l *lexer) nextItem() lexItem {
@@ -628,30 +634,6 @@ func lexStringASCIIPlist(state stateFn) stateFn {
 	}
 }
 
-func lexString(state stateFn) stateFn {
-	return func(l *lexer) stateFn {
-		l.next()
-		escaping := false
-		for {
-			r := l.next()
-			switch r {
-			case eof:
-				return l.unexpectedToken(r)
-			case '\\':
-				escaping = !escaping
-			case '"':
-				if !escaping {
-					l.emit(itemString)
-					return state
-				}
-				escaping = false
-			default:
-				escaping = false
-			}
-		}
-	}
-}
-
 func lexBareString(state stateFn) stateFn {
 	return func(l *lexer) stateFn {
 		for {
@@ -733,7 +715,7 @@ func lexRoutineCall(l *lexer) stateFn {
 			return l.eof()
 		case '"':
 			l.backup()
-			return lexString(lexRoutineCall)
+			return l.lexString(lexRoutineCall)
 		case '@':
 			l.emit(itemAtSign)
 		case '(':

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path"
 
 	"github.com/iawaknahc/gogenstrings/errors"
 )
@@ -48,7 +49,19 @@ func (p routineCallSlice) toMap() (map[string]routineCall, error) {
 }
 
 func parseRoutineCalls(src, routineName, filepath string) (routineCallSlice, error) {
-	l := newLexer(src, filepath, lexRoutineCall)
+	var lexString func(stateFn) stateFn
+	switch path.Ext(filepath) {
+	case ".swift":
+		lexString = lexStringSwift
+	case ".m", ".h":
+		lexString = lexStringObjc
+	default:
+		return nil, errors.File(
+			filepath,
+			"unknown file type",
+		)
+	}
+	l := newLexerWithString(src, filepath, lexString, lexRoutineCall)
 	p := &routineCallParser{
 		filepath:    filepath,
 		routineName: routineName,
@@ -152,9 +165,9 @@ func (p *routineCallParser) parseString() (output string) {
 		if token.Type != itemString {
 			p.unexpected(token)
 		}
-		output += getStringValue(token.Value)
+		output += token.Value
 	} else if token.Type == itemString {
-		output += getStringValue(token.Value)
+		output += token.Value
 	} else {
 		p.unexpected(token)
 	}
@@ -167,9 +180,9 @@ func (p *routineCallParser) parseString() (output string) {
 				p.unexpected(token)
 				break
 			}
-			output += getStringValue(token.Value)
+			output += token.Value
 		} else if !atSign && token.Type == itemString {
-			output += getStringValue(token.Value)
+			output += token.Value
 		} else {
 			p.backup()
 			break

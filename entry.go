@@ -4,10 +4,6 @@ import (
 	"strings"
 )
 
-func getStringValue(s string) string {
-	return s[1 : len(s)-1]
-}
-
 type entry struct {
 	filepath  string
 	startLine int

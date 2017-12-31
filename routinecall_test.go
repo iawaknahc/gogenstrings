@@ -24,44 +24,52 @@ class MyView: UILabel {
 `
 	expected := routineCallSlice{
 		routineCall{
+			filepath:  ".swift",
 			startLine: 7,
 			startCol:  15,
 			key:       "key1",
 			comment:   "comment",
 		},
 		routineCall{
+			filepath:  ".swift",
 			startLine: 8,
 			startCol:  15,
 			key:       "key2",
 			comment:   "comment",
 		},
 		routineCall{
+			filepath:  ".swift",
 			startLine: 9,
 			startCol:  15,
 			key:       "key1",
 			comment:   "comment",
 		},
 		routineCall{
+			filepath:  ".swift",
 			startLine: 10,
 			startCol:  15,
 			key:       "key1",
 			comment:   "comment",
 		},
 		routineCall{
+			filepath:  ".swift",
 			startLine: 11,
 			startCol:  15,
 			key:       "key1",
 			comment:   "comment",
 		},
 		routineCall{
+			filepath:  ".swift",
 			startLine: 12,
 			startCol:  15,
 			key:       "key1",
 			comment:   "comment",
 		},
 	}
-	actual, err := parseRoutineCalls(input, routineName, "")
-	if err != nil || !reflect.DeepEqual(actual, expected) {
+	actual, err := parseRoutineCalls(input, routineName, ".swift")
+	if err != nil {
+		t.Fail()
+	} else if !reflect.DeepEqual(actual, expected) {
 		t.Fail()
 	}
 }
