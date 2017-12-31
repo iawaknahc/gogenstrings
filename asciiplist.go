@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"unicode"
+	"unicode/utf16"
 
 	"github.com/iawaknahc/gogenstrings/errors"
 )
@@ -347,4 +349,45 @@ func parseASCIIPlist(src, filepath string) (ASCIIPlistNode, error) {
 		lexer:    &l,
 	}
 	return p.parse()
+}
+
+// PrintASCIIPlistString turns a string to a string literal
+func PrintASCIIPlistString(s string) string {
+	buf := bytes.Buffer{}
+	buf.WriteRune('"')
+	for _, r := range s {
+		switch r {
+		case '\\':
+			buf.WriteString(`\\`)
+		case '\a':
+			buf.WriteString(`\a`)
+		case '\b':
+			buf.WriteString(`\b`)
+		case '\f':
+			buf.WriteString(`\f`)
+		case '\n':
+			buf.WriteString(`\n`)
+		case '\r':
+			buf.WriteString(`\r`)
+		case '\t':
+			buf.WriteString(`\t`)
+		case '\v':
+			buf.WriteString(`\v`)
+		case '"':
+			buf.WriteString(`\"`)
+		default:
+			if unicode.IsPrint(r) {
+				buf.WriteRune(r)
+			} else {
+				if r < 0x10000 {
+					buf.WriteString(fmt.Sprintf(`\U%04X`, r))
+				} else {
+					r1, r2 := utf16.EncodeRune(r)
+					buf.WriteString(fmt.Sprintf(`\U%04X\U%04X`, r1, r2))
+				}
+			}
+		}
+	}
+	buf.WriteRune('"')
+	return buf.String()
 }

@@ -165,3 +165,20 @@ func TestParseASCIIPlist(t *testing.T) {
 		}
 	}
 }
+
+func TestPrintASCIIPlistString(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected string
+	}{
+		{"\\\a\b\f\n\r\t\v\"", `"\\\a\b\f\n\r\t\v\""`},
+		{"\u00000", `"\U00000"`},
+		{"🤔", `"🤔"`},
+	}
+	for _, c := range cases {
+		actual := PrintASCIIPlistString(c.input)
+		if actual != c.expected {
+			t.Fail()
+		}
+	}
+}

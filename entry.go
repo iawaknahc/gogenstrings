@@ -35,6 +35,9 @@ func (ls entry) print(suppressEmptyComment bool) string {
 	if printComment {
 		output += "/* " + strings.TrimSpace(ls.comment) + " */\n"
 	}
-	output += `"` + ls.key + `" = "` + ls.value + `";` + "\n\n"
+	output += PrintASCIIPlistString(ls.key)
+	output += " = "
+	output += PrintASCIIPlistString(ls.value)
+	output += ";\n\n"
 	return output
 }
