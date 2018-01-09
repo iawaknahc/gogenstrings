@@ -134,6 +134,9 @@ func (p *routineCallParser) parse() (output routineCallSlice, outerr error) {
 		if token.Type == itemEOF {
 			break
 		}
+		if token.Type == itemError {
+			return nil, token.Err
+		}
 		if token.Type != itemIdentifier || token.Value != p.routineName {
 			continue
 		}
