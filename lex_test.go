@@ -409,6 +409,31 @@ func TestLexStringSwift(t *testing.T) {
 	}
 }
 
+func TestLexStringIntepolation(t *testing.T) {
+	cases := []struct {
+		input string
+	}{
+		{`"\(1)"`},
+		{`"\( 1 )"`},
+		{`"\( "1" )"`},
+		{`"\( "\(1)" )"`},
+		{`"\( "\( 1 )" )"`},
+		{`"\( "\(((( 1 ))))" )"`},
+		{`"\( "\("" + "")" )"`},
+	}
+	for _, c := range cases {
+		l := newLexer(c.input, "", lexOneSwiftString)
+		lexItems := drainLexer(&l)
+		if len(lexItems) != 1 {
+			t.Fail()
+		} else {
+			if lexItems[0].Type != itemEOF {
+				t.Fail()
+			}
+		}
+	}
+}
+
 func TestLexStringSwiftInvalid(t *testing.T) {
 	cases := []struct {
 		input string

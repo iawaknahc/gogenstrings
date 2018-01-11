@@ -107,6 +107,27 @@ func (v lexItem) unexpectedTokenErr() errors.ErrFileLineCol {
 
 type stateFn func(*lexer) stateFn
 
+// runeStack is for handling
+// Swift's String Interpolation syntax
+type runeStack []rune
+
+func (s runeStack) push(r rune) runeStack {
+	return append(s, r)
+}
+
+func (s runeStack) peek() (rune, bool) {
+	l := len(s)
+	if l <= 0 {
+		return 0, false
+	}
+	return s[l-1], true
+}
+
+func (s runeStack) pop() runeStack {
+	l := len(s)
+	return s[:l-1]
+}
+
 type lexer struct {
 	state     stateFn
 	lexString func(stateFn) stateFn
@@ -213,6 +234,10 @@ func (l *lexer) invalidUniversalCharacterName() stateFn {
 
 func (l *lexer) invalidEscape() stateFn {
 	return l.emitError("invalid escape", true)
+}
+
+func (l *lexer) invalidStringInterpolation() stateFn {
+	return l.emitError("invalid string interpolation", true)
 }
 
 func (l *lexer) emitError(msg string, atStart bool) stateFn {
@@ -384,6 +409,67 @@ func lexOctalDigits(l *lexer, min, max int) (rune, bool) {
 	return rune(value), true
 }
 
+func skipStringInterpolation(state stateFn) stateFn {
+	return func(l *lexer) stateFn {
+		stack := runeStack{}
+		stack = stack.push('"')
+		stack = stack.push('(')
+		for {
+			var inExpr bool
+			lastPushedRune, ok := stack.peek()
+			if !ok {
+				return l.invalidStringInterpolation()
+			}
+			inExpr = lastPushedRune == '('
+
+			r := l.next()
+			if r == eof || r == '\n' || r == '\r' {
+				return l.invalidStringInterpolation()
+			}
+
+			if inExpr {
+				switch r {
+				case '(':
+					stack = stack.push('(')
+				case ')':
+					if last, ok := stack.peek(); !ok || last != '(' {
+						return l.invalidStringInterpolation()
+					}
+					stack = stack.pop()
+				case '"':
+					stack = stack.push('"')
+				default:
+					break
+				}
+			} else {
+				switch r {
+				case '"':
+					if last, ok := stack.peek(); !ok || last != '"' {
+						return l.invalidStringInterpolation()
+					}
+					stack = stack.pop()
+					if len(stack) <= 0 {
+						l.ignore()
+						return state
+					}
+				case '\\':
+					nextRune := l.next()
+					switch nextRune {
+					case eof, '\n', '\r':
+						return l.invalidStringInterpolation()
+					case '(':
+						stack = stack.push('(')
+					default:
+						break
+					}
+				default:
+					break
+				}
+			}
+		}
+	}
+}
+
 func lexStringSwift(state stateFn) stateFn {
 	// https://github.com/apple/swift/blob/master/lib/Parse/Lexer.cpp
 	return func(l *lexer) stateFn {
@@ -402,6 +488,8 @@ func lexStringSwift(state stateFn) stateFn {
 				switch nextRune {
 				case eof:
 					return l.unterminatedStringLiteral()
+				case '(':
+					return skipStringInterpolation(state)
 				case '\\':
 					runes = append(runes, '\\')
 				case '0':
