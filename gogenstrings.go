@@ -328,13 +328,7 @@ func (p *genstringsContext) write() error {
 	for lproj, em := range p.outInfoPlistEntryMap {
 		sorted := em.toEntries().sort()
 		targetPath := lproj + "/InfoPlist.strings"
-		if len(sorted) <= 0 {
-			if err := os.Remove(targetPath); err != nil {
-				if !os.IsNotExist(err) {
-					return err
-				}
-			}
-		} else {
+		if len(sorted) > 0 {
 			content := sorted.print(true)
 			if err := writeFile(targetPath, content); err != nil {
 				return err
