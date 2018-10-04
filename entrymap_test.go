@@ -71,7 +71,7 @@ func TestEntryMapMergeDev(t *testing.T) {
 	expected := entryMap{
 		"key1": entry{
 			key:   "key1",
-			value: "value1_en",
+			value: "key1",
 		},
 		"key2": entry{
 			key:   "key2",

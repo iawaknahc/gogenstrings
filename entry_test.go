@@ -56,7 +56,7 @@ func TestEntryMergeDev(t *testing.T) {
 		value: "value",
 	}
 	e = e.mergeDev(dev)
-	if e.value != dev.value {
+	if e.value == "value" {
 		t.Fail()
 	}
 }

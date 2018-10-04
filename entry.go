@@ -40,9 +40,6 @@ func (ls entry) mergeCall(rc routineCall) entry {
 
 func (ls entry) mergeDev(dev entry) entry {
 	ls.comment = dev.comment
-	if ls.value == ls.key {
-		ls.value = dev.value
-	}
 	return ls
 }
 
