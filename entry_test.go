@@ -4,6 +4,23 @@ import (
 	"testing"
 )
 
+func TestNewEntryFromRoutineCall(t *testing.T) {
+	call := routineCall{}
+	call.comment = ""
+
+	e := newEntryFromRoutineCall(call)
+	if e.comment != "No comment provided by engineer." {
+		t.Fail()
+	}
+
+	call.comment = "Default Value"
+
+	e = newEntryFromRoutineCall(call)
+	if e.value != "Default Value" {
+		t.Fail()
+	}
+}
+
 func TestEntryMergeCall(t *testing.T) {
 	e := entry{}
 	call := routineCall{}

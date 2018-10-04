@@ -37,7 +37,7 @@ func TestEntryMapMergeCalls(t *testing.T) {
 		"key3": entry{
 			comment: "comment3",
 			key:     "key3",
-			value:   "key3",
+			value:   "comment3",
 		},
 	}
 	actual := em.mergeCalls(calls)

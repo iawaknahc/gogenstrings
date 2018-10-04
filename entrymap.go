@@ -13,11 +13,7 @@ func (p entryMap) mergeCalls(calls map[string]routineCall) entryMap {
 	// Copy new routine call
 	for key, call := range calls {
 		if _, ok := output[key]; !ok {
-			output[key] = entry{
-				comment: call.comment,
-				key:     call.key,
-				value:   call.key,
-			}
+			output[key] = newEntryFromRoutineCall(call)
 		}
 	}
 	return output

@@ -13,6 +13,23 @@ type entry struct {
 	value     string
 }
 
+func newEntryFromRoutineCall(rc routineCall) entry {
+	comment := "No comment provided by engineer."
+	value := ""
+	if rc.comment != "" {
+		value = rc.comment
+		comment = rc.comment
+	} else {
+		value = rc.key
+	}
+	ls := entry{
+		comment: comment,
+		key:     rc.key,
+		value:   value,
+	}
+	return ls
+}
+
 func (ls entry) mergeCall(rc routineCall) entry {
 	ls.comment = rc.comment
 	if ls.comment == "" {
