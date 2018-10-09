@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path"
 	"regexp"
 )
 
@@ -21,7 +20,6 @@ func parseOptionalRegexp(pattern string) (*regexp.Regexp, error) {
 
 func main() {
 	rootPtr := flag.String("root", ".", "the root path to the target")
-	infoPlistPtr := flag.String("infoplist", "", "the path to Info.plist (default \"<root>/Info.plist\")")
 	devLangPtr := flag.String("devlang", "en", "the development language")
 	routinePtr := flag.String("routine", "NSLocalizedString", "the routine name to extract")
 	excludePtr := flag.String("exclude", "", "the regexp to exclude")
@@ -34,16 +32,11 @@ func main() {
 	}
 
 	rootPath := *rootPtr
-	infoPlistPath := *infoPlistPtr
-	if infoPlistPath == "" {
-		infoPlistPath = path.Join(rootPath, "Info.plist")
-	}
 	devlang := *devLangPtr
 	routineName := *routinePtr
 
 	ctx := newGenstringsContext(
 		rootPath,
-		infoPlistPath,
 		devlang,
 		routineName,
 		excludeRe,
